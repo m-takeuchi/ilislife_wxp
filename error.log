@@ -1,0 +1,74 @@
+nanoproc@nanoproc-Vostro-2520:~/ilislife$ python main.py
+[INFO   ] [Logger      ] Record log in /home/nanoproc/.kivy/logs/kivy_16-07-20_17.txt
+[INFO   ] [Kivy        ] v1.9.1
+[INFO   ] [Python      ] v3.5.2 (default, Jul  5 2016, 12:43:10) 
+[GCC 5.4.0 20160609]
+[INFO   ] [Factory     ] 179 symbols loaded
+[INFO   ] [Image       ] Providers: img_tex, img_dds, img_gif, img_sdl2, img_pil (img_ffpyplayer ignored)
+[INFO   ] [OSC         ] using <multiprocessing> for socket
+[INFO   ] [Window      ] Provider: sdl2(['window_egl_rpi'] ignored)
+[INFO   ] [GL          ] OpenGL version <b'3.0 Mesa 11.2.0'>
+[INFO   ] [GL          ] OpenGL vendor <b'Intel Open Source Technology Center'>
+[INFO   ] [GL          ] OpenGL renderer <b'Mesa DRI Intel(R) Ivybridge Mobile '>
+[INFO   ] [GL          ] OpenGL parsed version: 3, 0
+[INFO   ] [GL          ] Shading version <b'1.30'>
+[INFO   ] [GL          ] Texture max size <8192>
+[INFO   ] [GL          ] Texture max units <16>
+[INFO   ] [Window      ] auto add sdl2 input provider
+[INFO   ] [Window      ] virtual keyboard not allowed, single mode, not docked
+[INFO   ] [Text        ] Provider: sdl2
+[INFO   ] [ProbeSysfs  ] device match: /dev/input/event6
+[INFO   ] [MTD         ] Read event from </dev/input/event6>
+[INFO   ] [Base        ] Start application main loop
+[INFO   ] [GL          ] NPOT texture support is available
+ Exception in thread Thread-1:
+ Traceback (most recent call last):
+   File "/usr/lib/python3.5/threading.py", line 914, in _bootstrap_inner
+     self.run()
+   File "/usr/lib/python3.5/threading.py", line 862, in run
+     self._target(*self._args, **self._kwargs)
+   File "/usr/lib/python3/dist-packages/kivy/input/providers/mtdev.py", line 219, in _thread_run
+     _device = Device(_fn)
+   File "/usr/lib/python3/dist-packages/kivy/lib/mtdev.py", line 131, in __init__
+     self._fd = os.open(filename, os.O_NONBLOCK | os.O_RDONLY)
+ PermissionError: [Errno 13] Permission denied: '/dev/input/event6'
+ 
+Prologix is now controller mode.
+Prologix is now controller mode.
+Prologix is now controller mode.
+Sampling rate changed to "medium".
+Sampling rate changed to "medium".
+created on_countdown trigger
+[INFO   ] [Base        ] Leaving application in progress...
+ Traceback (most recent call last):
+   File "main.py", line 533, in <module>
+     IlislifeApp().run()
+   File "/usr/lib/python3/dist-packages/kivy/app.py", line 828, in run
+     runTouchApp()
+   File "/usr/lib/python3/dist-packages/kivy/base.py", line 487, in runTouchApp
+     EventLoop.window.mainloop()
+   File "/usr/lib/python3/dist-packages/kivy/core/window/window_sdl2.py", line 619, in mainloop
+     self._mainloop()
+   File "/usr/lib/python3/dist-packages/kivy/core/window/window_sdl2.py", line 362, in _mainloop
+     EventLoop.idle()
+   File "/usr/lib/python3/dist-packages/kivy/base.py", line 327, in idle
+     Clock.tick()
+   File "/usr/lib/python3/dist-packages/kivy/clock.py", line 515, in tick
+     self._process_events()
+   File "/usr/lib/python3/dist-packages/kivy/clock.py", line 647, in _process_events
+     event.tick(self._last_tick, remove)
+   File "/usr/lib/python3/dist-packages/kivy/clock.py", line 406, in tick
+     ret = callback(self._dt)
+   File "main.py", line 235, in hold_Volt
+     self.seq_now += 1 #シーケンスを1進める
+   File "kivy/properties.pyx", line 408, in kivy.properties.Property.__set__ (kivy/properties.c:5114)
+   File "kivy/properties.pyx", line 446, in kivy.properties.Property.set (kivy/properties.c:5876)
+   File "kivy/properties.pyx", line 501, in kivy.properties.Property.dispatch (kivy/properties.c:6557)
+   File "kivy/_event.pyx", line 1224, in kivy._event.EventObservers.dispatch (kivy/_event.c:13497)
+   File "kivy/_event.pyx", line 1106, in kivy._event.EventObservers._dispatch (kivy/_event.c:12301)
+   File "/usr/lib/python3/dist-packages/kivy/lang.py", line 1566, in call_fn
+     e_value = eval(value, idmap)
+   File "./ilislife.kv", line 38, in <module>
+     text: str(root.seq_now)+',   '+str(root.seq[root.seq_now][0])+',  '+str(root.seq[root.seq_now][1])
+ IndexError: list index out of range
+
