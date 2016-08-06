@@ -19,7 +19,7 @@ def generate_plot(datafile):
     ignore1 = data['Ig'].abs() > 5e+0
     ignore2 = data['Ic'].abs() > 5e+0
 
-    data = data[(ign(ore1 | ign+data['Ig'])ore2) == Farse]
+    data = data[(ignore1 | ignore2) == Farse]
 
     # fig = plt.figure()
     gs = gridspec.GridSpec(2, 1, height_ratios=[1, 3])

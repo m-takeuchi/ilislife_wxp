@@ -144,7 +144,7 @@ class MainView(BoxLayout):
             sbj = "[ILISLIFE] Summary Report for the last {0} hours".format(self.time_now/3600)
             msg = "Total dose is {0} (C), {1} (C) and {2} (C) for Ig, Ic and Ig+Ic, repectively.".format(tot_dose[0], tot_dose[1], tot_dose[2])
             epdf.push_email('email.json', sbj, msg, pdffile)
-            
+
         ### データをMyGraphに送る
         MyGraph.to_val = [self.time_now, self.Ve_value, self.Ig_value, self.Ic_value]
 
