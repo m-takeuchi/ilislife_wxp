@@ -31,12 +31,12 @@ import wx
 #
 import matplotlib
 matplotlib.use('WXAgg')
-from matplotlib.figure import Figure
+# from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_wxagg import \
     FigureCanvasWxAgg as FigCanvas, \
     NavigationToolbar2WxAgg as NavigationToolbar
 import numpy as np
-import pylab
 
 
 class DataGen(object):
@@ -123,16 +123,21 @@ class GraphFrame(wx.Frame):
     t0 = 0
     dt = 1000 #ms
     BUFFSIZE = 43200 # 12 hours = 12*3600 sec
+    COLS = 4 # Number of param you deal with (include time col)
+    val_arr = np.zeros((BUFFSIZE, COLS))
+    # t_laspe = np.arange(0, BUFFSIZE)
 
     def __init__(self):
         # wx.Frame.__init__(self, None, -1, self.title)
         super().__init__(None, -1, self.title)
 
         self.datagen = DataGen()
-        ### 
+        ###
         self.t = [self.t0]
         self.data = [self.datagen.next()]
         ###
+        # self.val_arr[0,0] = t0 # Initialization time col's 1st element
+        # self.val_arr[0,1:] = [self.datagen.next() for i in range(COLS-1)] # Initilaze param cols' 1st elements
 
         self.paused = False
 
@@ -211,14 +216,16 @@ class GraphFrame(wx.Frame):
 
     def init_plot(self):
         self.dpi = 100
-        self.fig = Figure((3.0, 3.0), dpi=self.dpi)
+        # self.fig = Figure((3.0, 3.0), dpi=self.dpi)
+        self.fig = plt.Figure((3.0, 3.0), dpi=self.dpi)
 
         self.axes = self.fig.add_subplot(111)
         self.axes.set_axis_bgcolor((0.1,0.1,0.1,1))
         self.axes.set_title('Very important random data', size=12)
 
-        pylab.setp(self.axes.get_xticklabels(), fontsize=8)
-        pylab.setp(self.axes.get_yticklabels(), fontsize=8)
+        plt.setp(self.axes.get_xticklabels(), fontsize=8)
+        plt.setp(self.axes.get_yticklabels(), fontsize=8)
+
 
         # plot the data as a line series, and save the reference
         # to the plotted line series
@@ -279,8 +286,8 @@ class GraphFrame(wx.Frame):
         # Using setp here is convenient, because get_xticklabels
         # returns a list over which one needs to explicitly
         # iterate, and setp already handles this.
-        #
-        pylab.setp(self.axes.get_xticklabels(),
+
+        plt.setp(self.axes.get_xticklabels(),
             visible=self.cb_xlab.IsChecked())
 
         # self.plot_data.set_xdata(np.arange(len(self.data)))
