@@ -2,28 +2,14 @@
 # -*- coding: utf-8 -*-
 
 """
-This demo demonstrates how to draw a dynamic mpl (matplotlib)
-plot in a wxPython application.
+MyGraph.py, modified from demo python script by Eli Bendersky (eliben@gmail.com), is real time plotting with wxPython Phoenix
 
-It allows "live" plotting as well as manual zooming to specific
-regions.
-
-Both X and Y axes allow "auto" or "manual" settings. For Y, auto
-mode sets the scaling of the graph to see all the data points.
-For X, auto mode makes the graph "follow" the data. Set it X min
-to manual 0 to always see the whole data from the beginning.
-
-Note: press Enter in the 'manual' text box to make a new value
-affect the plot.
-
-Eli Bendersky (eliben@gmail.com)
-License: this code is in the public domain
-Last modified: 31.07.2008
 """
 import os
 # import pprint
 import random
 import sys
+# import threading
 import wx
 
 # The recommended way to use wx with mpl is with the WXAgg
@@ -62,11 +48,7 @@ class DataGen(object):
             self.data += delta
         else:
             self.data += delta
-    ###
-    def t(self, t, dt):
-        t += dt
-        return t
-    ###
+
 
 class BoundControlBox(wx.Panel):
     """ A static box with a couple of radio buttons and a text
@@ -120,9 +102,9 @@ class GraphFrame(wx.Frame):
     """ The main frame of the application
     """
     title = 'MyGraph Demo: dynamic matplotlib graph'
-    t0 = 0
+    t = t0 = 0
     dt = 1000 #ms
-    BUFFSIZE = 43200 # 12 hours = 12*3600 sec
+    BUFFSIZE = 1000 # 12 hours = 12*3600 sec = 43200
     COLS = 4 # Number of param you deal with (include time col)
     val_arr = np.zeros((BUFFSIZE, COLS))
     # t_laspe = np.arange(0, BUFFSIZE)
@@ -133,11 +115,11 @@ class GraphFrame(wx.Frame):
 
         self.datagen = DataGen()
         ###
-        self.t = [self.t0]
-        self.data = [self.datagen.next()]
+        # self.t = [self.t0]
+        # self.data = [self.datagen.next()]
         ###
-        # self.val_arr[0,0] = t0 # Initialization time col's 1st element
-        # self.val_arr[0,1:] = [self.datagen.next() for i in range(COLS-1)] # Initilaze param cols' 1st elements
+        self.val_arr[0,0] = self.t0 # Initialization time col's 1st element
+        self.val_arr[0,1:] = [self.datagen.next() for i in range(self.COLS-1)] # Initilaze param cols' 1st elements
 
         self.paused = False
 
@@ -168,8 +150,10 @@ class GraphFrame(wx.Frame):
         self.init_plot()
         self.canvas = FigCanvas(self.panel, -1, self.fig)
 
-        self.xmin_control = BoundControlBox(self.panel, -1, "X min", 0)
-        self.xmax_control = BoundControlBox(self.panel, -1, "X max", 50)
+        # self.xmin_control = BoundControlBox(self.panel, -1, "X min", 0)
+        # self.xmax_control = BoundControlBox(self.panel, -1, "X max", 50)
+        self.xmin_control = BoundControlBox(self.panel, -1, "X min", -60)
+        self.xmax_control = BoundControlBox(self.panel, -1, "X max", 0)
         self.ymin_control = BoundControlBox(self.panel, -1, "Y min", 0)
         self.ymax_control = BoundControlBox(self.panel, -1, "Y max", 100)
 
@@ -227,14 +211,12 @@ class GraphFrame(wx.Frame):
         plt.setp(self.axes.get_yticklabels(), fontsize=8)
 
 
-        # plot the data as a line series, and save the reference
-        # to the plotted line series
-        #
-        self.plot_data = self.axes.plot(
-            self.data,
-            linewidth=1,
-            color=(1, 1, 0),
-            )[0]
+
+        self.plot_data = []
+        colors = ['red','blue', 'green']
+        for col in range(self.COLS-1):
+            self.plot_data.append(self.axes.plot(self.val_arr[:,0], self.val_arr[:,col+1], linewidth=1, color=colors[col])[0])
+            # print(self.axes.plot(self.val_arr[:,0], self.val_arr[:,col+1], linewidth=1, color=colors[col]))
 
     def draw_plot(self):
         """ Redraws the plot
@@ -244,12 +226,14 @@ class GraphFrame(wx.Frame):
         # xmax.
         #
         if self.xmax_control.is_auto():
-            xmax = len(self.data) if len(self.data) > 50 else 50
+            # xmax = len(self.data) if len(self.data) > 50 else 50
+            xmax = self.val_arr[0,0]
         else:
             xmax = int(self.xmax_control.manual_value())
 
         if self.xmin_control.is_auto():
-            xmin = xmax - 50
+            # xmin = xmax - 50
+            xmin = self.val_arr[-1,0]
         else:
             xmin = int(self.xmin_control.manual_value())
 
@@ -291,8 +275,9 @@ class GraphFrame(wx.Frame):
             visible=self.cb_xlab.IsChecked())
 
         # self.plot_data.set_xdata(np.arange(len(self.data)))
-        self.plot_data.set_xdata(np.arange(len(self.t)))
-        self.plot_data.set_ydata(np.array(self.data))
+        for col in range(self.COLS-1):
+            self.plot_data[col].set_xdata(self.val_arr[:, 0])
+            self.plot_data[col].set_ydata(self.val_arr[:, col+1])
 
         self.canvas.draw()
 
@@ -329,13 +314,17 @@ class GraphFrame(wx.Frame):
         # if paused do not add data, but still redraw the plot
         # (to respond to scale modifications, grid change, etc.)
         #
-        if not self.paused:
-            ###
-            self.t.append(self.datagen.t(self.t[-1], self.dt))
-            ###
-            self.data.append(self.datagen.next())
 
-        self.draw_plot()
+        if not self.paused:
+            self.val_arr = np.roll(self.val_arr, 1, axis=0) # Roll 1 element forward
+            self.t += self.dt/1000
+            # self.val_arr[0,0] = self.t
+            self.val_arr[:,0] = np.arange(0,-self.BUFFSIZE*self.dt/1000,-self.dt/1000)
+            self.val_arr[0,1:] = [self.datagen.next() for i in range(self.COLS-1)]
+            print(self.val_arr)
+            self.draw_plot()
+        # self.draw_plot()
+        # print(self.val_arr)
 
     def on_exit(self, event):
         self.Destroy()
