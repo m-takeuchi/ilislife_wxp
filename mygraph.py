@@ -60,14 +60,14 @@ class BoundControlBox(wx.Panel):
 
         self.value = initval
 
-        box = wx.StaticBox(self, -1, label)
+        box = wx.StaticBox(self, wx.ID_ANY, label)
         sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
 
-        self.radio_auto = wx.RadioButton(self, -1,
+        self.radio_auto = wx.RadioButton(self, wx.ID_ANY,
             label="Auto", style=wx.RB_GROUP)
-        self.radio_manual = wx.RadioButton(self, -1,
+        self.radio_manual = wx.RadioButton(self, wx.ID_ANY,
             label="Manual")
-        self.manual_text = wx.TextCtrl(self, -1,
+        self.manual_text = wx.TextCtrl(self, wx.ID_ANY,
             size=(35,-1),
             value=str(initval),
             style=wx.TE_PROCESS_ENTER)
@@ -107,17 +107,13 @@ class GraphFrame(wx.Frame):
     BUFFSIZE = 1000 # 12 hours = 12*3600 sec = 43200
     COLS = 4 # Number of param you deal with (include time col)
     val_arr = np.zeros((BUFFSIZE, COLS))
-    # t_laspe = np.arange(0, BUFFSIZE)
+
 
     def __init__(self):
         # wx.Frame.__init__(self, None, -1, self.title)
-        super().__init__(None, -1, self.title)
+        super().__init__(None, wx.ID_ANY, self.title)
 
         self.datagen = DataGen()
-        ###
-        # self.t = [self.t0]
-        # self.data = [self.datagen.next()]
-        ###
         self.val_arr[0,0] = self.t0 # Initialization time col's 1st element
         self.val_arr[0,1:] = [self.datagen.next() for i in range(self.COLS-1)] # Initilaze param cols' 1st elements
 
@@ -135,8 +131,8 @@ class GraphFrame(wx.Frame):
         self.menubar = wx.MenuBar()
 
         menu_file = wx.Menu()
-        m_expt = menu_file.Append(-1, "&Save plot\tCtrl-S", "Save plot to file")
-        self.Bind(wx.EVT_MENU, self.on_save_plot, m_expt)
+        # m_expt = menu_file.Append(-1, "&Save plot\tCtrl-S", "Save plot to file")
+        # self.Bind(wx.EVT_MENU, self.on_save_plot, m_expt)
         menu_file.AppendSeparator()
         m_exit = menu_file.Append(-1, "E&xit\tCtrl-X", "Exit")
         self.Bind(wx.EVT_MENU, self.on_exit, m_exit)
@@ -147,27 +143,27 @@ class GraphFrame(wx.Frame):
     def create_main_panel(self):
         self.panel = wx.Panel(self)
 
+        #### ここから
         self.init_plot()
-        self.canvas = FigCanvas(self.panel, -1, self.fig)
+        self.canvas = FigCanvas(self.panel, wx.ID_ANY, self.fig)
+        #### ここまで
 
-        # self.xmin_control = BoundControlBox(self.panel, -1, "X min", 0)
-        # self.xmax_control = BoundControlBox(self.panel, -1, "X max", 50)
-        self.xmin_control = BoundControlBox(self.panel, -1, "X min", -60)
-        self.xmax_control = BoundControlBox(self.panel, -1, "X max", 0)
-        self.ymin_control = BoundControlBox(self.panel, -1, "Y min", 0)
-        self.ymax_control = BoundControlBox(self.panel, -1, "Y max", 100)
+        self.xmin_control = BoundControlBox(self.panel, wx.ID_ANY, "X min", -60)
+        self.xmax_control = BoundControlBox(self.panel, wx.ID_ANY, "X max", 0)
+        self.ymin_control = BoundControlBox(self.panel, wx.ID_ANY, "Y min", 0)
+        self.ymax_control = BoundControlBox(self.panel, wx.ID_ANY, "Y max", 100)
 
-        self.pause_button = wx.Button(self.panel, -1, "Pause")
+        self.pause_button = wx.Button(self.panel, wx.ID_ANY, "Pause")
         self.Bind(wx.EVT_BUTTON, self.on_pause_button, self.pause_button)
         self.Bind(wx.EVT_UPDATE_UI, self.on_update_pause_button, self.pause_button)
 
-        self.cb_grid = wx.CheckBox(self.panel, -1,
+        self.cb_grid = wx.CheckBox(self.panel, wx.ID_ANY,
             "Show Grid",
             style=wx.ALIGN_RIGHT)
         self.Bind(wx.EVT_CHECKBOX, self.on_cb_grid, self.cb_grid)
         self.cb_grid.SetValue(True)
 
-        self.cb_xlab = wx.CheckBox(self.panel, -1,
+        self.cb_xlab = wx.CheckBox(self.panel, wx.ID_ANY,
             "Show X labels",
             style=wx.ALIGN_RIGHT)
         self.Bind(wx.EVT_CHECKBOX, self.on_cb_xlab, self.cb_xlab)
@@ -294,21 +290,21 @@ class GraphFrame(wx.Frame):
     def on_cb_xlab(self, event):
         self.draw_plot()
 
-    def on_save_plot(self, event):
-        file_choices = "PNG (*.png)|*.png"
-
-        dlg = wx.FileDialog(
-            self,
-            message="Save plot as...",
-            defaultDir=os.getcwd(),
-            defaultFile="plot.png",
-            wildcard=file_choices,
-            style=wx.SAVE)
-
-        if dlg.ShowModal() == wx.ID_OK:
-            path = dlg.GetPath()
-            self.canvas.print_figure(path, dpi=self.dpi)
-            self.flash_status_message("Saved to %s" % path)
+    # def on_save_plot(self, event):
+    #     file_choices = "PNG (*.png)|*.png"
+    #
+    #     dlg = wx.FileDialog(
+    #         self,
+    #         message="Save plot as...",
+    #         defaultDir=os.getcwd(),
+    #         defaultFile="plot.png",
+    #         wildcard=file_choices,
+    #         style=wx.SAVE)
+    #
+    #     if dlg.ShowModal() == wx.ID_OK:
+    #         path = dlg.GetPath()
+    #         self.canvas.print_figure(path, dpi=self.dpi)
+    #         self.flash_status_message("Saved to %s" % path)
 
     def on_redraw_timer(self, event):
         # if paused do not add data, but still redraw the plot
@@ -328,18 +324,18 @@ class GraphFrame(wx.Frame):
 
     def on_exit(self, event):
         self.Destroy()
-
-    def flash_status_message(self, msg, flash_len_ms=1500):
-        self.statusbar.SetStatusText(msg)
-        self.timeroff = wx.Timer(self)
-        self.Bind(
-            wx.EVT_TIMER,
-            self.on_flash_status_off,
-            self.timeroff)
-        self.timeroff.Start(flash_len_ms, oneShot=True)
-
-    def on_flash_status_off(self, event):
-        self.statusbar.SetStatusText('')
+    #
+    # def flash_status_message(self, msg, flash_len_ms=1500):
+    #     self.statusbar.SetStatusText(msg)
+    #     self.timeroff = wx.Timer(self)
+    #     self.Bind(
+    #         wx.EVT_TIMER,
+    #         self.on_flash_status_off,
+    #         self.timeroff)
+    #     self.timeroff.Start(flash_len_ms, oneShot=True)
+    #
+    # def on_flash_status_off(self, event):
+    #     self.statusbar.SetStatusText('')
 
 
 if __name__ == '__main__':
