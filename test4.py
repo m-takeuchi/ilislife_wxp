@@ -29,8 +29,8 @@ class MainFrame(wx.Frame):
 
     def OnButton(self, event):
         """ This event handler starts the separate thread. """
-        # self.btn.Enable(False)
-        self.btn.Enable(True)
+        self.btn.Enable(False)
+        # self.btn.Enable(True)
         self.gauge.SetValue(0)
         self.label.SetLabel("Running")
 

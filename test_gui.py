@@ -1,0 +1,431 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import time, os, json, importlib, tempfile
+from importlib import machinery
+import wx
+
+from threading import Thread
+from wx.lib.pubsub import pub
+
+class OperationVe():
+
+class ConfigPanel(wx.Panel):
+    cfg_param = {} ### config parameters to be used for another classes
+    def __init__(self, parent):
+        super(ConfigPanel, self).__init__(parent, wx.ID_ANY)
+        # self.SetBackgroundColour("#00FF00")
+
+        self.elt1 = ("element_1", "element_2", "element_4", "element_3", "element_5")
+        self.elt2 = ("element_1", "element_2", "element_4", "element_3", "element_5")
+        ### Save file name
+        self.cbx_file = wx.ComboBox(self, wx.ID_ANY, "Save to ...", choices=self.elt1, style=wx.CB_DROPDOWN)
+        ### Set comment to the file
+        self.cbx_cmt = wx.ComboBox(self, wx.ID_ANY, "Comment", choices=self.elt2, style=wx.CB_DROPDOWN)
+        ### Config botton
+        self.btn_cfg = wx.Button(self, wx.ID_ANY, "Config", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.btn_cfg.Bind(wx.EVT_BUTTON, self.open_cfg)
+        ### Set sequence
+        self.btn_seq = wx.Button(self, wx.ID_ANY, "Sequence", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.btn_seq.Bind(wx.EVT_BUTTON, self.open_seq)
+        ### Connect botton
+        self.btn_cnt = wx.Button(self, wx.ID_ANY, "Connect", wx.DefaultPosition, wx.DefaultSize, 0 )
+        ### Start measurement botton
+        self.btn_sta = wx.Button(self, wx.ID_ANY, "Start", wx.DefaultPosition, wx.DefaultSize, 0 )
+        ### Reset measurement botton
+        self.btn_rst = wx.Button(self, wx.ID_ANY, "Reset", wx.DefaultPosition, wx.DefaultSize, 0 )
+        ### Sequence view
+        # self.seq_view = wx.TextCtrl(self, wx.ID_ANY, style=wx.TE_MULTILINE)
+        # text_tests = [str(txt)+'\n' for txt in range(10)]
+        # for txt in text_tests:
+        #     self.seq_view.AppendText(txt)
+        self.seq_view = SeqList(self)
+
+        ### Static lines
+        self.stl_1 = wx.StaticLine(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL)
+        self.stl_2 = wx.StaticLine(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL)
+
+
+        ### Layout
+        layout = wx.BoxSizer(wx.VERTICAL)
+        layout.Add(self.cbx_file, flag=wx.GROW)
+        layout.Add(self.cbx_cmt, flag=wx.GROW)
+        layout.AddSpacer(10)
+        layout.Add(self.stl_1, flag=wx.GROW)
+        layout.Add(self.btn_cfg, flag=wx.GROW)
+        layout.Add(self.btn_seq, flag=wx.GROW)
+        layout.AddSpacer(10)
+        layout.Add(self.stl_2, flag=wx.GROW)
+        layout.AddSpacer(10)
+        layout.Add(self.btn_cnt, flag=wx.GROW)
+        layout.Add(self.btn_sta, flag=wx.GROW)
+        layout.Add(self.btn_rst, flag=wx.GROW)
+        layout.AddSpacer(10)
+        layout.Add(self.seq_view, proportion=1, flag=wx.EXPAND )
+        self.SetSizer(layout)
+
+    def open_cfg(self, event):
+        dialog = ConfigDialog(self)
+        if self.cfg_param != {}: ### Second time and later
+            dialog.cfg_param = self.cfg_param  ### Initialize instance's variable
+            dialog.update_config()
+        # print(self.cfg_param)
+        try:
+            # dialog.ShowModal()
+            dialog.Show()
+            print('Tried')
+        # finally:
+        except:
+            pass
+        else:
+            self.cfg_param = dialog.cfg_param
+            # print(self.cfg_param)
+            # dialog.Destroy()
+            # print('Destroied')
+        return True
+
+    def open_seq(self, event):
+        seqSet = SequenceSetting(self)
+        seqSet.Show()
+
+class SequenceSetting(wx.Frame):
+    seq_str = ""
+    def __init__(self, parent):
+        super(SequenceSetting, self).__init__(parent, wx.ID_ANY, title="Sequence Setting")
+
+        ### Text area to display email.json file
+        self.txt_seq = wx.TextCtrl(self, wx.ID_ANY, style=wx.TE_MULTILINE)
+
+        ### Load, Save and Apply botton
+        btn_load = wx.Button(self, wx.ID_ANY, "Load")
+        btn_load.Bind(wx.EVT_BUTTON, self.button_load_click)
+        btn_save = wx.Button(self, wx.ID_ANY, "Save")
+        # btn_save.Bind(wx.EVT_BUTTON, self.button_save_click)
+        btn_apply = wx.Button(self, wx.ID_ANY, "Apply")
+        btn_apply.Bind(wx.EVT_BUTTON, self.button_apply_click)
+        hbox_btn = wx.BoxSizer(wx.HORIZONTAL)
+        hbox_btn.Add(btn_load, proportion=1, flag=wx.GROW | wx.ALL, border=10)
+        hbox_btn.Add(btn_save, proportion=1,  flag=wx.GROW | wx.ALL, border=10)
+        hbox_btn.Add(btn_apply,  proportion=1, flag=wx.GROW | wx.ALL, border=10)
+
+        layout = wx.BoxSizer(wx.VERTICAL)
+        # layout.Add(pnl_dtl, flag=wx.GROW)
+        layout.Add(self.txt_seq, proportion=1, flag=wx.EXPAND|wx.ALL, border=10)
+        layout.AddSpacer(10)
+        layout.Add(hbox_btn, flag=wx.GROW|wx.ALL, border=10)
+        self.SetSizer(layout)
+
+    def update_seq(self):
+        self.txt_seq.SetValue(self.seq_str)
+    def read_seq(self):
+        self.seq_str = self.txt_seq.GetValue()
+
+    def check_seq(self, module):
+        """Check sequence syntax
+        """
+        pass
+        # if not module.dV:
+        #     if type(module.dV) is not int:
+        #         if module.dV < 1:
+        #             return False
+        #         return False
+        #     return False
+        # elif not module.dt_meas:
+
+    def button_load_click(self, event):
+        self.dirName = os.path.dirname(os.path.abspath(__file__))
+        ### Show file dialog to load file
+        dialog = wx.FileDialog(self, "Load sequence file", self.dirName, "", "*.py", wx.FD_OPEN  | wx.FD_FILE_MUST_EXIST)
+        ### Show until pushing OK button
+        if dialog.ShowModal() == wx.ID_OK:
+            self.fileName = dialog.GetFilename()
+            self.dirName = dialog.GetDirectory()
+            with open(os.path.join(self.dirName, self.fileName), 'r') as f:
+                self.seq_str = "".join(f.readlines())
+            self.update_seq()
+        ### Destroy dialog
+        dialog.Destroy()
+
+    def button_save_click(self, event):
+        self.read_seq()
+        self.dirName = os.path.dirname(os.path.abspath(__file__))
+        ### Show file dialog to load file
+        dialog = wx.FileDialog(self, "Save sequence file", self.dirName, "", "*.py", wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+        ### Show until pushing OK button
+        if dialog.ShowModal() == wx.ID_OK:
+            self.fileName = dialog.GetFilename()
+            self.dirName = dialog.GetDirectory()
+            with open(os.path.join(self.dirName, self.fileName), 'w') as f:
+                f.writelines(self.seq_str)
+        ### Destroy dialog
+        dialog.Destroy()
+
+    def button_apply_click(self, event):
+        yesno_dialog = wx.MessageDialog(self, "Apply now?",
+            "CAUTION", wx.YES_NO | wx.ICON_QUESTION)
+
+        try:
+            if yesno_dialog.ShowModal() == wx.ID_YES:
+                self.read_seq()
+                ### Save seq_str as a temporary file
+                fd, path = tempfile.mkstemp()
+                print(path)
+                os.write(fd, self.seq_str.encode("utf-8"))
+                ### Dinamically import py module
+                # seq_var = importlib.import_module('sequence')
+                self.seq_var = machinery.SourceFileLoader("seq_var", path).load_module()
+                self.check_seq(self.seq_var)
+                ### Send arg over class
+                pub.sendMessage("seqListner", message=self.seq_var.SEQ)
+                self.Close()
+        finally:
+            yesno_dialog.Destroy()
+        return True
+
+class SeqList(wx.ListCtrl):
+    """Prepare sequence list on the top frame
+    """
+    SEQ = []
+    def __init__(self, parent):
+        super(SeqList, self).__init__(parent, wx.ID_ANY, style=wx.LC_REPORT
+                         |wx.BORDER_SUNKEN)
+
+        pub.subscribe(self.seq_listen, "seqListner")
+
+        # self.list = wx.ListCtrl(panel, -1, style = wx.LC_REPORT)
+        self.InsertColumn(0, "#", wx.LIST_FORMAT_RIGHT)
+        self.InsertColumn(1, "Ve (V)", wx.LIST_FORMAT_RIGHT)
+        self.InsertColumn(2, "Time (s)", wx.LIST_FORMAT_RIGHT)
+
+        self.SetColumnWidth(0, 20)
+        self.SetColumnWidth(1, 60)
+        self.SetColumnWidth(2, 60)
+
+
+    def seq_listen(self, message):
+        """ pub listner to get sequence list from SequenceSetting class
+        """
+        self.SEQ = message
+
+        for i,v in enumerate(self.SEQ):
+            self.InsertItem(i, str(i))
+            self.SetItem(i, 1, str(v[0]))
+            self.SetItem(i, 2, str(v[1]))
+
+
+# class ConfigDialog(wx.Dialog):
+class ConfigDialog(wx.Frame):
+    cfg_param = {} ### config parameters to be going to read from config.json
+
+    # def __init__(self, parent):
+    #     super(ConfigDialog, self).__init__(parent, wx.ID_ANY, title="Config Dialog", size=(400,300))
+    def __init__(self, parent):
+        super(ConfigDialog, self).__init__(parent, wx.ID_ANY, title="Config")
+        if self.cfg_param == {}:
+            self.load_default()
+
+        ### Sampling period
+        self.lbl_sampling = wx.StaticText(self, wx.ID_ANY, "Sampling period (s)")
+        self.txt_sampling = wx.TextCtrl(self, wx.ID_ANY, self.cfg_param['sampling'])
+        ### Prologix serial port
+        self.lbl_pgx = wx.StaticText(self, wx.ID_ANY, "Prologix port")
+        self.txt_pgx = wx.TextCtrl(self, wx.ID_ANY, self.cfg_param['pgx_port'])
+        ### GPIB channel
+        self.lbl_gpib = wx.StaticText(self, wx.ID_ANY, "GPIB (Ve, Ig, Ic)")
+        self.txt_gpib_Ve = wx.TextCtrl(self, wx.ID_ANY, self.cfg_param['VeAddr'])
+        self.txt_gpib_Ig = wx.TextCtrl(self, wx.ID_ANY, self.cfg_param['IgAddr'])
+        self.txt_gpib_Ic = wx.TextCtrl(self, wx.ID_ANY, self.cfg_param['IcAddr'])
+        hbox_gpib = wx.BoxSizer(wx.HORIZONTAL)
+        hbox_gpib.Add(self.txt_gpib_Ve, proportion=1, flag=wx.GROW)
+        hbox_gpib.Add(self.txt_gpib_Ig, proportion=1, flag=wx.GROW)
+        hbox_gpib.Add(self.txt_gpib_Ic, proportion=1, flag=wx.GROW)
+        ### Serial port for GI-D7
+        self.lbl_gi = wx.StaticText(self, wx.ID_ANY, "Port for GI-D7")
+        self.txt_gi = wx.TextCtrl(self, wx.ID_ANY, self.cfg_param['gid7_port'])
+        ### Pressure limit to abort
+        self.chb_pla = wx.CheckBox(self, wx.ID_ANY, "P limit to abort")
+        self.txt_pla = wx.TextCtrl(self, wx.ID_ANY, self.cfg_param['pressure_abort'])
+        ### Pressure limit to postpone
+        self.chb_plp = wx.CheckBox(self, wx.ID_ANY, "P limit to postpone")
+        self.txt_plp = wx.TextCtrl(self, wx.ID_ANY, self.cfg_param['pressure_postpone'])
+        ### Email Notifyer
+        self.chb_emn = wx.CheckBox(self, wx.ID_ANY, "Email notifyer")
+        self.btn_emn = wx.Button(self, wx.ID_ANY, "Detail")
+        self.btn_emn.Bind(wx.EVT_BUTTON, self.open_emn_detail)
+
+        ### Layout ConfigDaialog
+        fgs_layout = wx.FlexGridSizer(2,4,1)
+        fgs_layout.Add(self.lbl_sampling, flag=wx.GROW)
+        fgs_layout.Add(self.txt_sampling, flag=wx.GROW)
+        fgs_layout.Add(self.lbl_pgx, flag=wx.GROW)
+        fgs_layout.Add(self.txt_pgx, flag=wx.GROW)
+        fgs_layout.Add(self.lbl_gpib, flag=wx.GROW)
+        fgs_layout.Add(hbox_gpib, flag=wx.GROW)
+        fgs_layout.Add(self.lbl_gi, flag=wx.GROW)
+        fgs_layout.Add(self.txt_gi, flag=wx.GROW)
+        fgs_layout.Add(self.chb_pla, flag=wx.GROW)
+        fgs_layout.Add(self.txt_pla, flag=wx.GROW)
+        fgs_layout.Add(self.chb_plp, flag=wx.GROW)
+        fgs_layout.Add(self.txt_plp, flag=wx.GROW)
+        fgs_layout.Add(self.chb_emn, flag=wx.GROW)
+        fgs_layout.Add(self.btn_emn, flag=wx.GROW)
+
+        ### Load, Save and Apply botton
+        btn_load = wx.Button(self, wx.ID_ANY, "Load")
+        btn_load.Bind(wx.EVT_BUTTON, self.button_load_click)
+        btn_save = wx.Button(self, wx.ID_ANY, "Save")
+        btn_save.Bind(wx.EVT_BUTTON, self.button_save_click)
+        btn_apply = wx.Button(self, wx.ID_ANY, "Apply")
+        btn_apply.Bind(wx.EVT_BUTTON, self.button_apply_click)
+        hbox_btn = wx.BoxSizer(wx.HORIZONTAL)
+        hbox_btn.Add(btn_load, proportion=1, flag=wx.GROW | wx.ALL, border=10)
+        hbox_btn.Add(btn_save, proportion=1,  flag=wx.GROW | wx.ALL, border=10)
+        hbox_btn.Add(btn_apply,  proportion=1, flag=wx.GROW | wx.ALL, border=10)
+
+        layout = wx.BoxSizer(wx.VERTICAL)
+        # layout.Add(pnl_dtl, flag=wx.GROW)
+        layout.Add(fgs_layout, proportion=1, flag=wx.GROW|wx.RIGHT|wx.LEFT|wx.TOP, border=10)
+        # layout.AddSpacer(10)
+        layout.Add(hbox_btn, proportion=1,flag=wx.GROW|wx.RIGHT|wx.LEFT|wx.BOTTOM, border=10)
+        self.SetSizer(layout)
+
+    def load_default(self):
+        self.dirName = os.path.dirname(os.path.abspath(__file__))
+        self.fileName = 'config.json'
+        try:
+            with open(os.path.join(self.dirName, self.fileName), 'r') as f:
+                self.cfg_param = json.load(f)
+        except:
+            print('Please set config.json')
+
+    def update_config(self):
+        self.txt_sampling.SetValue(self.cfg_param['sampling'])
+        self.txt_pgx.SetValue(self.cfg_param['pgx_port'])
+        self.txt_gpib_Ve.SetValue(self.cfg_param['VeAddr'])
+        self.txt_gpib_Ig.SetValue(self.cfg_param['IgAddr'])
+        self.txt_gpib_Ic.SetValue(self.cfg_param['IcAddr'])
+        self.txt_gi.SetValue(self.cfg_param['gid7_port'])
+        self.txt_pla.SetValue(self.cfg_param['pressure_abort'])
+        self.txt_plp.SetValue(self.cfg_param['pressure_postpone'])
+
+    def read_config(self):
+        self.cfg_param['sampling'] = self.txt_sampling.GetValue()
+        self.cfg_param['pgx_port'] = self.txt_pgx.GetValue()
+        self.cfg_param['VeAddr'] = self.txt_gpib_Ve.GetValue()
+        self.cfg_param['IgAddr'] = self.txt_gpib_Ig.GetValue()
+        self.cfg_param['IcAddr'] = self.txt_gpib_Ic.GetValue()
+        self.cfg_param['gid7_port'] = self.txt_gi.GetValue()
+        self.cfg_param['pressure_abort'] = self.txt_pla.GetValue()
+        self.cfg_param['pressure_postpone'] = self.txt_plp.GetValue()
+
+
+    def button_load_click(self, event):
+        self.dirName = os.path.dirname(os.path.abspath(__file__))
+        ### Show file dialog to load file
+        dialog = wx.FileDialog(self, "Load configuration file", self.dirName, "", "*.json", wx.FD_OPEN  | wx.FD_FILE_MUST_EXIST)
+        ### Show until pushing OK button
+        if dialog.ShowModal() == wx.ID_OK:
+            self.fileName = dialog.GetFilename()
+            self.dirName = dialog.GetDirectory()
+            with open(os.path.join(self.dirName, self.fileName), 'r') as f:
+                self.cfg_param = json.load(f)
+            self.update_config()
+        ### Destroy dialog
+        dialog.Destroy()
+
+    def button_save_click(self, event):
+        self.read_config()
+        self.dirName = os.path.dirname(os.path.abspath(__file__))
+        ### Show file dialog to load file
+        dialog = wx.FileDialog(self, "Save configuration file", self.dirName, "", "*.json", wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+        ### Show until pushing OK button
+        if dialog.ShowModal() == wx.ID_OK:
+            self.fileName = dialog.GetFilename()
+            self.dirName = dialog.GetDirectory()
+            with open(os.path.join(self.dirName, self.fileName), 'w') as f:
+                json.dump(self.cfg_param , f, sort_keys=True, indent=4)
+            # print(self.cfg_param)
+        ### Destroy dialog
+        dialog.Destroy()
+
+    def button_apply_click(self, event):
+        yesno_dialog = wx.MessageDialog(self, "Apply now?",
+            "CAUTION", wx.YES_NO | wx.ICON_QUESTION)
+
+        try:
+            if yesno_dialog.ShowModal() == wx.ID_YES:
+                self.read_config()
+                self.Close()
+        finally:
+            yesno_dialog.Destroy()
+        return True
+
+    def open_emn_detail(self, event):
+        dialog = EmailDetail(self)
+        try:
+            dialog.ShowModal()
+        finally:
+            dialog.Destroy()
+        return True
+
+
+class EmailDetail(wx.Dialog):
+    def __init__(self, parent):
+        super(EmailDetail, self).__init__(parent, wx.ID_ANY)
+        jsonfile = os.path.dirname(os.path.abspath(__file__))+'/email.json'
+        if jsonfile:
+            with open('email.json', 'r') as f:
+                lines = f.readlines()
+                jsondata = ''.join(lines)
+        else:
+            jsondata = ''
+
+        ### Text area to display email.json file
+        self.txt_eml = wx.TextCtrl(self, wx.ID_ANY, style=wx.TE_MULTILINE)
+        self.txt_eml.AppendText(jsondata)
+        ### Load, Save and Apply buttons
+        self.btn_load = wx.Button(self, wx.ID_ANY, 'Load')
+        self.btn_save = wx.Button(self, wx.ID_ANY, 'Save')
+        self.btn_apply = wx.Button(self, wx.ID_ANY, 'apply')
+        hbox_btn = wx.BoxSizer(wx.HORIZONTAL)
+        hbox_btn.Add(self.btn_load, proportion=1, flag=wx.GROW | wx.ALL, border=10)
+        hbox_btn.Add(self.btn_save, proportion=1, flag=wx.GROW | wx.ALL, border=10)
+        hbox_btn.Add(self.btn_apply, proportion=1, flag=wx.GROW | wx.ALL, border=10)
+
+        ### Layout
+        layout = wx.BoxSizer(wx.VERTICAL)
+        layout.Add(self.txt_eml, proportion=1, flag=wx.EXPAND)
+        layout.Add(hbox_btn, proportion=1, flag=wx.GROW)
+        self.SetSizer(layout)
+
+
+# import mygraph
+class MyGraphPanel(wx.Panel):
+    def __init__(self, parent):
+        super(MyGraphPanel, self).__init__(parent, wx.ID_ANY)
+        self.SetBackgroundColour("#FF0000")
+
+# class ConfigBotton()
+
+class TopForm(wx.Frame):
+    """MainFrame of this app
+    """
+    def __init__(self):
+        # wx.Frame.__init__(self, None, wx.ID_ANY, "Tutorial")
+        super().__init__(None, wx.ID_ANY, "ILISlife", size=(800,600))
+        mgp = MyGraphPanel(self)
+        cfp = ConfigPanel(self)
+        stb = self.CreateStatusBar()
+        stb.SetStatusText( "statusbar text" )
+
+        layout = wx.BoxSizer(wx.HORIZONTAL)
+        layout.Add(cfp, proportion=0.1,flag=wx.GROW | wx.ALL, border=10)
+        layout.Add(wx.StaticLine(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_VERTICAL), flag=wx.GROW)
+        layout.Add(mgp, proportion=3, flag=wx.EXPAND | wx.RIGHT)
+        self.SetSizer(layout)
+
+
+if __name__ == "__main__":
+    app = wx.App()
+    frame = TopForm().Show()
+    app.MainLoop()

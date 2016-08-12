@@ -2,7 +2,7 @@
 # import serial
 from prologix import GPIBUSB
 import time
-import numpy as np
+# import numpy as np
 import sys
 
 #portname = '/dev/ttyS0'

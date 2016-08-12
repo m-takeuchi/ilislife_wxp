@@ -119,26 +119,26 @@ class GraphFrame(wx.Frame):
 
         self.paused = False
 
-        self.create_menu()
-        self.create_status_bar()
+        # self.create_menu()
+        # self.create_status_bar()
         self.create_main_panel()
 
         self.redraw_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)
         self.redraw_timer.Start(self.dt)
 
-    def create_menu(self):
-        self.menubar = wx.MenuBar()
-
-        menu_file = wx.Menu()
-        # m_expt = menu_file.Append(-1, "&Save plot\tCtrl-S", "Save plot to file")
-        # self.Bind(wx.EVT_MENU, self.on_save_plot, m_expt)
-        menu_file.AppendSeparator()
-        m_exit = menu_file.Append(-1, "E&xit\tCtrl-X", "Exit")
-        self.Bind(wx.EVT_MENU, self.on_exit, m_exit)
-
-        self.menubar.Append(menu_file, "&File")
-        self.SetMenuBar(self.menubar)
+    # def create_menu(self):
+    #     self.menubar = wx.MenuBar()
+    #
+    #     menu_file = wx.Menu()
+    #     # m_expt = menu_file.Append(-1, "&Save plot\tCtrl-S", "Save plot to file")
+    #     # self.Bind(wx.EVT_MENU, self.on_save_plot, m_expt)
+    #     menu_file.AppendSeparator()
+    #     m_exit = menu_file.Append(-1, "E&xit\tCtrl-X", "Exit")
+    #     self.Bind(wx.EVT_MENU, self.on_exit, m_exit)
+    #
+    #     self.menubar.Append(menu_file, "&File")
+    #     self.SetMenuBar(self.menubar)
 
     def create_main_panel(self):
         self.panel = wx.Panel(self)

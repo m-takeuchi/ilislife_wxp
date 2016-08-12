@@ -12,8 +12,8 @@ class RS232():
 # At first, get initialized
     def __init__(self, portname, unitnum=1):
         self._portname_ = portname
-        self.raw = serial.Serial(self._portname_, BAUDRATE, timeout=1, rtscts=True)
-        time.sleep(1)
+        self.raw = serial.Serial(self._portname_, BAUDRATE, timeout=0.05, rtscts=True)
+        time.sleep(0.2)
 
     ### Basic I/O
     # Simply write buffer to RS232
