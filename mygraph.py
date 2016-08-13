@@ -17,7 +17,6 @@ import wx
 #
 import matplotlib
 matplotlib.use('WXAgg')
-# from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_wxagg import \
     FigureCanvasWxAgg as FigCanvas, \
@@ -217,29 +216,17 @@ class GraphFrame(wx.Frame):
     def draw_plot(self):
         """ Redraws the plot
         """
-        # when xmin is on auto, it "follows" xmax to produce a
-        # sliding window effect. therefore, xmin is assigned after
-        # xmax.
-        #
         if self.xmax_control.is_auto():
-            # xmax = len(self.data) if len(self.data) > 50 else 50
             xmax = self.val_arr[0,0]
         else:
             xmax = int(self.xmax_control.manual_value())
 
         if self.xmin_control.is_auto():
-            # xmin = xmax - 50
             xmin = self.val_arr[-1,0]
         else:
             xmin = int(self.xmin_control.manual_value())
 
-        # for ymin and ymax, find the minimal and maximal values
-        # in the data set and add a mininal margin.
-        #
-        # note that it's easy to change this scheme to the
-        # minimal/maximal value in the current display, and not
-        # the whole data set.
-        #
+
         if self.ymin_control.is_auto():
             ymin = round(min(self.data), 0) - 1
         else:
@@ -253,24 +240,16 @@ class GraphFrame(wx.Frame):
         self.axes.set_xbound(lower=xmin, upper=xmax)
         self.axes.set_ybound(lower=ymin, upper=ymax)
 
-        # anecdote: axes.grid assumes b=True if any other flag is
-        # given even if b is set to False.
-        # so just passing the flag into the first statement won't
-        # work.
-        #
         if self.cb_grid.IsChecked():
             self.axes.grid(True, color='gray')
         else:
             self.axes.grid(False)
 
-        # Using setp here is convenient, because get_xticklabels
-        # returns a list over which one needs to explicitly
-        # iterate, and setp already handles this.
 
         plt.setp(self.axes.get_xticklabels(),
             visible=self.cb_xlab.IsChecked())
 
-        # self.plot_data.set_xdata(np.arange(len(self.data)))
+
         for col in range(self.COLS-1):
             self.plot_data[col].set_xdata(self.val_arr[:, 0])
             self.plot_data[col].set_ydata(self.val_arr[:, col+1])
@@ -290,27 +269,7 @@ class GraphFrame(wx.Frame):
     def on_cb_xlab(self, event):
         self.draw_plot()
 
-    # def on_save_plot(self, event):
-    #     file_choices = "PNG (*.png)|*.png"
-    #
-    #     dlg = wx.FileDialog(
-    #         self,
-    #         message="Save plot as...",
-    #         defaultDir=os.getcwd(),
-    #         defaultFile="plot.png",
-    #         wildcard=file_choices,
-    #         style=wx.SAVE)
-    #
-    #     if dlg.ShowModal() == wx.ID_OK:
-    #         path = dlg.GetPath()
-    #         self.canvas.print_figure(path, dpi=self.dpi)
-    #         self.flash_status_message("Saved to %s" % path)
-
     def on_redraw_timer(self, event):
-        # if paused do not add data, but still redraw the plot
-        # (to respond to scale modifications, grid change, etc.)
-        #
-
         if not self.paused:
             self.val_arr = np.roll(self.val_arr, 1, axis=0) # Roll 1 element forward
             self.t += self.dt/1000

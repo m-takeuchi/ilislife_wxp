@@ -29,8 +29,10 @@ from kivy.app import App
 # Importing my modules
 import e3640a_prologix as BPHV
 import hioki
+import gid7 ### for ion guage
 from kivy.properties import StringProperty
 import datetime as dtm
+import time
 import random
 import numpy as np
 import plot_tdepend as tdep
@@ -44,9 +46,11 @@ IgAddr = 2
 if _platform == "linux" or _platform == "linux2":
     # linux
     tty = '/dev/ttyUSB0'
+    ttyRS232 = '/dev/ttyUSB1'
 elif _platform == "darwin":
     # OS X
     tty = '/dev/tty.usbserial-PXWV0AMC'
+    ttyRS232 = '/dev/tty.usbserial-FTAJM1O6'
 elif _platform == "win32":
     # Windows...
     # tty =
@@ -59,10 +63,11 @@ from config import *
 directory = 'data/'
 filename = directory+"{0:%y%m%d-%H%M%S}.dat".format(dtm.datetime.now())
 with open(filename, mode = 'w', encoding = 'utf-8') as fh:
-    fh.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\n')
+    # fh.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\n')
+    fh.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\n')
 
 # Time to make summary graph wih matplotlib
-time_mkgraph = 12*3600# sec
+time_mkgraph = 6*3600# sec
 
 class MyRoot(TabbedPanel):
     pass
@@ -82,21 +87,25 @@ class MainView(BoxLayout):
     Ve_status = StringProperty('Ve')
     Ic_status = StringProperty('Ic')
     Ig_status = StringProperty('Ig')
+    P_status = StringProperty('P')
     Ve_value =  NumericProperty()
     Ig_value =  NumericProperty()
     Ic_value =  NumericProperty()
+    P_value =  NumericProperty()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
     def on_command(self, command):
-        global Ve_obj, Ic_obj, Ig_obj
+        # global Ve_obj, Ic_obj, Ig_obj
+        global Ve_obj, Ic_obj, Ig_obj, P_obj
 
         if command == 'connect/disconnect':
             if self.is_connected:
                 self.disconnect_device()#Ve_obj, Ic_obj, Ig_obj)
             else:
                 self.time_now = 0
-                Ve_obj, Ic_obj, Ig_obj = self.connect_device()
+                # Ve_obj, Ic_obj, Ig_obj = self.connect_device()
+                Ve_obj, Ic_obj, Ig_obj, P_obj = self.connect_device()
 
         elif command == 'start/stop':
             if self.is_countup:
@@ -125,8 +134,14 @@ class MainView(BoxLayout):
         try:
             self.Ig_value = Ig_obj.Measure()
             self.Ic_value = Ic_obj.Measure()
+            start = time.time()
+            self.P_value  = P_obj.RP()
+            #elapsed_time = time.time() - start
+            #print('elapsed_time: '+str(elapsed_time))
             self.Ic_status = str(self.Ic_value)
             self.Ig_status = str(self.Ig_value)
+            self.P_status  = "{0:1.2e}".format(self.P_value)
+
         except ValueError:
             self.Ig_value = 0
             self.Ic_value = 0
@@ -135,7 +150,7 @@ class MainView(BoxLayout):
         self.Ve_value = self.volt_now
 
         ### データをファイルに追記
-        StoreValue.append_to_file(filename, [self.time_now, self.Ve_value, self.Ig_value, self.Ic_value])
+        StoreValue.append_to_file(filename, [self.time_now, self.Ve_value, self.Ig_value, self.Ic_value, "{0:1.2e}".format(self.P_value)])
         ### 経過時間がtime_mkgraphの整数倍の時、グラフｐｄｆを作成 & Send email
         if self.time_now != 0 and self.time_now%time_mkgraph == 0:
             tot_dose = tdep.generate_plot(filename)
@@ -146,7 +161,7 @@ class MainView(BoxLayout):
             epdf.push_email('email.json', sbj, msg, pdffile)
 
         ### データをMyGraphに送る
-        MyGraph.to_val = [self.time_now, self.Ve_value, self.Ig_value, self.Ic_value]
+        MyGraph.to_val = [self.time_now, self.Ve_value, self.Ig_value, self.Ic_value, self.P_value]
 
         self.time_now += 1
 
@@ -161,22 +176,25 @@ class MainView(BoxLayout):
         pass
 
     def connect_device(self):#, tty, VeAddr, IcAddr, IgAddr):
-        """各GPIB機器を設定する
+        """各GPIB機器およびRS232機器を設定する
         """
         Ve_obj = BPHV.E3640A(tty, VeAddr)
         Ic_obj = hioki.dmm3239gpib(tty, IcAddr)
         Ig_obj = hioki.dmm3239gpib(tty, IgAddr)
-        # self.Ve_status = Ve.Query('*IDN?')
+        P_obj  = gid7.RS232(ttyRS232)
+        P_obj.RE() # Set GI-D7 into Remote control mode
         self.Ve_status = Ve_obj.Query('*IDN?')
         self.Ic_status = Ic_obj.Query('*IDN?')
         self.Ig_status = Ig_obj.Query('*IDN?')
+        self.P_status = P_obj.GS() # Ask device
         msg = Ve_obj.Clear()
         Ic_obj.Mode()
         Ic_obj.SampleRate(rate='medium')
         Ig_obj.Mode()
         Ig_obj.SampleRate(rate='medium')
+        P_obj.F1() # Turn filament on
         self.is_connected = True
-        return Ve_obj, Ic_obj, Ig_obj
+        return Ve_obj, Ic_obj, Ig_obj, P_obj
 
     def disconnect_device(self):#, Ve_obj, Ic_obj, Ig_obj):
         """設定したGPIB機器を初期状態に戻し, ポートを開放する
@@ -186,9 +204,12 @@ class MainView(BoxLayout):
         Ve_obj.Clear()
         Ic_obj.Rst()
         Ig_obj.Rst()
+        P_obj.F0()
+        P_obj.LO()
         self.Ve_status = 'Disconnected'
         self.Ic_status = 'Disconnected'
         self.Ig_status = 'Disconnected'
+        self.P_status  = 'Disconnected'
         # Ve_obj.ClosePort()
         self.is_connected = False
 
@@ -380,6 +401,8 @@ class MainView(BoxLayout):
             # Ve_obj.ShutDown()
             # Ig_obj.Cls()
             # Ic_obj.Cls()
+            P_obj.F0()
+            P_obj.LO()
         pass
 
     def Start_IncVolt(self, volt_target, dt):
@@ -406,7 +429,9 @@ class MyGraph(BoxLayout):
     Ve_value =  NumericProperty()
     Ig_value =  NumericProperty()
     Ic_value =  NumericProperty()
-    val = np.zeros((BUFFSIZE, 4))
+    P_value  =  NumericProperty()
+    # val = np.zeros((BUFFSIZE, 4))
+    val = np.zeros((BUFFSIZE, 5))
     t_lapse = np.arange(0,BUFFSIZE)
 
 
@@ -425,6 +450,7 @@ class MyGraph(BoxLayout):
         self.plot.append(MeshLinePlot(color=[1, 0, 0, 1]))  # X - Red
         self.plot.append(MeshLinePlot(color=[0, 1, 0, 1]))  # Y - Green
         self.plot.append(MeshLinePlot(color=[0, 0.5, 1, 1]))  # Z - Blue
+        self.plot.append(MeshLinePlot(color=[0.5, 0.5, 1, 1]))  # pressure log
         self.reset_plots()
         for plot in self.plot:
             self.graph.add_plot(plot) # Add MeshLinePlot object of garden.graph into Graph()
@@ -459,30 +485,36 @@ class MyGraph(BoxLayout):
 
 
 
-    def read_file(self, filename):
-        last = os.popen('tail -1 '+filename).read().rsplit('\n')[0].split('\t')[2:] ### Implement
-        # print(last)
-        # with open(filename, mode = 'r', encoding = 'utf-8') as fh:
-            # last = fh.readlines()[-1].rsplit('\n')[0].split('\t')[2:]
-        ve = float(last[0])/1000.
-        ig = float(last[1])*1000
-        ic = float(last[2])*1000
-        return [ve,ig,ic]
+    # def read_file(self, filename):
+    #     last = os.popen('tail -1 '+filename).read().rsplit('\n')[0].split('\t')[2:] ### Implement
+    #     # print(last)
+    #     # with open(filename, mode = 'r', encoding = 'utf-8') as fh:
+    #         # last = fh.readlines()[-1].rsplit('\n')[0].split('\t')[2:]
+    #     ve = float(last[0])/1000.
+    #     ig = float(last[1])*1000
+    #     ic = float(last[2])*1000
+    #     return [ve,ig,ic]
 
     def get_mydata(self, dt):
         self.val[0] = self.to_val
         ### Modify values digits
-        self.val[0, 1:] = self.val[0,1:] * (1e-3, 1e+3, 1e+3)
+        self.val[0, 1:] = self.val[0,1:] * (1e-3, 1e+3, 1e+3, 1)
+        if self.val[0,4] != 0:
+            self.val[0, 4] = np.log10(self.val[0, 4])
+        else:
+            self.val[0, 4] = -10#np.log10(self.val[0, 4])
         # Reset time
         self.val[:,0] = self.t_lapse
 
         output1 = self.val[:,(0,1)].tolist() # for (t, Ve)
         output2 = self.val[:,(0,2)].tolist()  # for (t, Ig)
         output3 = self.val[:,(0,3)].tolist()  # for (t, Ic)
+        output4 = self.val[:,(0,4)].tolist()  # for (t, P)
 
         self.plot[0].points = output1
         self.plot[1].points = output2
         self.plot[2].points = output3
+        self.plot[3].points = output4
         self.val = np.roll(self.val, 1, axis=0)
 
     def format_val(self, val):
@@ -499,6 +531,7 @@ class StoreValue(BoxLayout):
     Ve_value =  NumericProperty()
     Ig_value =  NumericProperty()
     Ic_value =  NumericProperty()
+    P_value  =  NumericProperty()
     is_random = BooleanProperty(False)
 
     def __init__(self, **kwargs):

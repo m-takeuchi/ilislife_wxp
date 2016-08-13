@@ -8,7 +8,7 @@ import wx
 from threading import Thread
 from wx.lib.pubsub import pub
 
-class OperationVe():
+
 
 class ConfigPanel(wx.Panel):
     cfg_param = {} ### config parameters to be used for another classes

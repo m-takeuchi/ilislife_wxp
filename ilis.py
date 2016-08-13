@@ -27,28 +27,62 @@ class VeOperation():
     seq_now = 0
     # left_time = NumericProperty()
     Ve_status = 'Ve'
+    Ig_status = 'Ig'
+    Ic_status = 'Ic'
+    P_status = 'P'
     Ve_value =  0
+    Ig_value =  0
+    Ic_value =  0
+    P_value =  0
+    portGPIB = ''
+    portRS232 = ''
+    VeAddr = 5
+    IgAddr = 2
+    IcAddr = 1
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.event = threading.Event()
         self.lock = threading.Lock()
 
-    def connect_device(self, ttyport, VeAddr):#, IcAddr, IgAddr):
-        """Connect to BPHV
+    def connect_device(self):
+        """Connect to BPHV and initialize gid7
         """
-        self.Ve_obj = BPHV.E3640A(ttyport, VeAddr)
+        self.Ve_obj = BPHV.E3640A(self.portGPIB, self.VeAddr)
+        self.Ic_obj = hioki.dmm3239gpib(self.portGPIB, self.IcAddr)
+        self.Ig_obj = hioki.dmm3239gpib(self.portGPIB, self.IgAddr)
+        self.P_obj  = gid7.RS232(self.ttyRS232)
+        self.P_obj.RE() # Set GI-D7 into Remote control mode
+
         self.Ve_status = self.Ve_obj.Query('*IDN?')
         msg = self.Ve_obj.Clear()
+        self.Ic_status = self.Ic_obj.Query('*IDN?')
+        self.Ig_status = self.Ig_obj.Query('*IDN?')
+        self.P_status = self.P_obj.GS() # Ask device
+        self.Ic_obj.Mode()
+        self.Ic_obj.SampleRate(rate='medium')
+        self.Ig_obj.Mode()
+        self.Ig_obj.SampleRate(rate='medium')
+        self.P_obj.F1() # Turn filament on
+
         self.is_connected = True
-        return self.Ve_obj ### Is this needed?
+        return {'Ve_obj':self.Ve_obj, 'Ic_obj':self.Ic_obj, 'Ig_obj':self.Ig_obj, 'P_obj':self.P_obj} ### Is this needed?
 
     def disconnect_device(self):
         """Disconnect BPHV
         """
         self.Ve_obj.VoltZero()
         self.Ve_obj.ShutDown()
+        self.Ic_obj.Rst()
+        self.Ig_obj.Rst()
+        self.P_obj.F0()
+        self.P_obj.LO()
+
         self.Ve_status = 'Disconnected'
+        self.Ic_status = 'Disconnected'
+        self.Ig_status = 'Disconnected'
+        self.P_status  = 'Disconnected'
+
         self.is_connected = False
     #
     # def run(self):
@@ -146,7 +180,32 @@ class VeOperation():
             return False
         self.left_time -= 1
 
-### Need modify
+
+    def aquire_param(self):
+        """Callback function for fetching measured values
+        """
+        ### Update instance variables
+        try:
+            self.Ig_value = self.Ig_obj.Measure()
+            self.Ic_value = self.Ic_obj.Measure()
+            start = time.time()
+            self.P_value  = self.P_obj.RP()
+            #elapsed_time = time.time() - start
+            self.Ve_value = self.volt_now
+            self.Ve_status = str(self.Ve_value)
+            self.Ic_status = str(self.Ic_value)
+            self.Ig_status = str(self.Ig_value)
+            self.P_status  = "{0:1.2e}".format(self.P_value)
+
+        except ValueError:
+            self.Ig_value = 0
+            self.Ic_value = 0
+            self.P_value  = self.P_obj.RP()
+            self.Ic_status = Ic_obj.ClearBuffer()
+            self.Ig_status = Ig_obj.ClearBuffer()
+            self.P_status  = "{0:1.2e}".format(self.P_value)
+
+
     def start_sequence(self):
         """Start voltage sequence
         """
@@ -172,7 +231,6 @@ class VeOperation():
                 time.sleep(self.dt)
             self.is_sequence = False
 
-### Need modify
     def on_sequence(self, dt):
         """Callback for voltage sequence
         """
@@ -189,6 +247,7 @@ class VeOperation():
                         while self.is_changevolt is True:
                             self.is_active = True
                             self.change_Volt(volt_target=self.volt_target)
+                            self.aquire_param()
                             self.is_active = False
                             time.sleep(self.dt)
 
@@ -202,13 +261,14 @@ class VeOperation():
                         while self.is_holdvolt is True:
                             self.is_active = True
                             self.hold_Volt(left_time=self.left_time)
+                            self.aquire_param()
                             self.is_active = False
                             time.sleep(self.dt)
 
             # except IndexError:
             elif self.seq_now > len(self.seq) -1:
                 print('All sequences are finished. Measurement is now stopped.')
-                self.abort_sequence()
+                self.stop_sequence()
 
 
     def lapse_time(self, t):
