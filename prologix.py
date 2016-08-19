@@ -45,17 +45,21 @@ class GPIBUSB(object):
             self._serPort_ = portNum
 
             ## Port setup
-            self.raw = serial.Serial(self._serPort_,9600,timeout=1,rtscts=True) #open the serial on COM n+1
+            # self.raw = serial.Serial(self._serPort_,9600,timeout=1,rtscts=True) #open the serial on COM n+1
+            self.openport()
             if reset:
                 self.resetPro() # Reset prologix
             else:
                 pass
 
             self.setProController()         # set up as a controller
-            self.read()
+            # self.setProDevice()         # set up as a device
+            # self.read()
 
     def openport(self):
-            self.raw=serial.Serial(self._serPort_,9600,timeout=1) #open the serial on COM n+1
+            # self.raw=serial.Serial(self._serPort_,9600,timeout=0.5,rtscts=True) #open the serial on COM n+1
+            self.raw=serial.Serial(self._serPort_,115200,timeout=1,rtscts=True)#xonxoff=True)
+            return self.raw
 
     def closeport(self):
             self.raw.close()
@@ -68,7 +72,7 @@ class GPIBUSB(object):
         self.raw.write(bytes(buffer + '\r\n', 'utf-8'))
 
     def read(self):
-            ans = self.raw.readline()
+            ans = self.raw.readline().decode('utf-8')
             return ans
 
     def ask(self,buffer):
@@ -93,7 +97,7 @@ class GPIBUSB(object):
 
     def Ask(self, addr, buffer):
         self.setProAddr(addr)
-        ans = self.ask(buffer).decode('utf-8')
+        ans = self.ask(buffer)
         return ans.replace("\r","",1)
 #=========================================================
 
@@ -135,15 +139,19 @@ class GPIBUSB(object):
             #assert GPIB IFC signal for 150 microseconds making Prologix GPIB- USB controller the Controller-In-Charge on the GPIB bus.
             self.write('++ifc')
 
-    def ProAutoAsk(self,buffer):
+    def ProAutoAsk(self,addr,buffer):
+            self.setProAddr(addr)
             self.setProAuto()
             return self.ask(buffer)
 
-    def ProAsk(self,buffer,eoi='\n'):
+    def ProAsk(self,addr,buffer,eoi='\n'):
+            self.setProAddr(addr)
             self.clrProAuto()
             self.write(buffer)
             self.write('++read ' + eoi)
-            return self.read()
+            ans = self.read()
+            # self.setProAuto()
+            return ans
 
     def setProAddr(self,newaddress):
             self.write('++addr'+str(newaddress))
@@ -152,24 +160,24 @@ class GPIBUSB(object):
     # Set the Prologix unit as a bus controller (master)
     def setProController(self):
             self.write('++mode 1')
-            mode = int(self.ask('++mode'))
-            if mode == 1:
-                    print('Prologix is now controller mode.')
-            else:
-                    print('SCRIPT: mode changing failed')
-                    mode = 0
-            return mode
+            # mode = int(self.ask('++mode'))
+            # if mode == 1:
+            #         print('Prologix is now controller mode.')
+            # else:
+            #         print('SCRIPT: mode changing failed')
+            #         mode = 0
+            # return mode
 
     # Set the Prologix unit as a bus device (slave)
     def setProDevice(self):
             self.write('++mode 0')
-            mode = int(self.ask('++mode'))
-            if mode == 0:
-                    print('Prologix is now device mode.')
-            else:
-                    print('SCRIPT: mode changing failed')
-                    mode = 1
-            return mode
+            # mode = int(self.ask('++mode'))
+            # if mode == 0:
+            #         print('Prologix is now device mode.')
+            # else:
+            #         print('SCRIPT: mode changing failed')
+            #         mode = 1
+            # return mode
 
     # Automatically set to read after writing
     def setProAuto(self):

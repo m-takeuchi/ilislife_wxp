@@ -21,10 +21,11 @@ class E3640A(GPIBUSB):
         return self.Read(self.addr)
 
     def Instruct(self, buffer):
+        self.clrProAuto()
         self.Write(self.addr, buffer)
 
     def Query(self, buffer):
-        return self.Ask(self.addr, buffer)
+        return self.ProAutoAsk(self.addr, buffer)
 
 
     def Clear(self):
@@ -35,11 +36,17 @@ class E3640A(GPIBUSB):
         self.Clear()
 
     def AskVolt(self):
-        volt_raw = self.Query("voltage?")
-        # print(volt_raw, type(volt_raw))
+        # volt_raw = self.Query("voltage?")
+        volt_raw = self.ProAsk(self.addr, 'voltage?')
+        # print(volt_raw)
+        # self.setProAuto()
+
+
         if volt_raw == '+0,"No error"\n':
             #再度読み込む
+            time.sleep(0.1)
             volt_raw = self.Query("voltage?")
+            # print(volt_raw)
         return float(volt_raw)
 
     def VoltStep(self, step):

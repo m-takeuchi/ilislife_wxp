@@ -14,10 +14,11 @@ class dmm3239gpib(GPIBUSB):
         return self.Read(self.addr)
 
     def Instruct(self, buffer):
+        self.clrProAuto()
         self.Write(self.addr, buffer)
 
     def Query(self, buffer):
-        return self.Ask(self.addr, buffer)
+        return self.ProAutoAsk(self.addr, buffer)
 
     def Rst(self):
         """Reset
@@ -50,8 +51,11 @@ class dmm3239gpib(GPIBUSB):
         # return meas
 
     def Measure(self):
-        d = self.Query(':read?')
+        # d = self.Query(':read?')
+        d = self.Query(':MEAS:VOLT?')
+        # d = self.ProAsk(self.addr, ':read?')
         return float(d)
+
         # print(self.Query(':MEAS:VOLT?'))
         # return float(self.Query(':MEAS:VOLT?'))
         # data_str = self.Query(':read?')
@@ -59,6 +63,25 @@ class dmm3239gpib(GPIBUSB):
             # data_str.replace('--','-')
         # print(data_str)
         # return float(data_str.rstrip('\n'))
+    def TrigInt(self, trig=True):
+        if trig == False:
+            source = 'EXTERNAL'
+        elif trig == True:
+            source = 'IMMEDIATE'
+        else:
+            source = 'IMMEDIATE'
+        self.Instruct(':TRIG:SOUR ' +source)
+
+    def Fetch(self):
+        d = self.Query('FETCH?')
+        return float(d)
+
+    def ContTrig(self):
+        self.Instruct(':INIT:CONT 1') ## 1: On, 0:OFF
+
+    def SingleTrig(self):
+        self.Instruct(':INIT:CONT 0') ## 1: On, 0:OFF
+
 
     def SampleRate(self, rate='fast'):
         if rate == 'fast' or rate == 'medium' or rate == 'slow':

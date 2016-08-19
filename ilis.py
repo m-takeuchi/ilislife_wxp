@@ -6,26 +6,28 @@ from __future__ import division  # 少数点以下表示のためのモジュー
 import os
 
 import e3640a_prologix as BPHV
+import hioki, gid7
 import datetime as dtm
 import time, random
-import threading
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 
 
-class VeOperation():
-    is_active = False # Flag for multiple GPIB use
-    is_countup = False
+class Operation():
     is_sequence = False
     is_connected = False
     is_changevolt = False
     is_holdvolt = False
+    is_output = False
     time_now = 0
+    time_start = 0
     volt_now = 0.0
     volt_target = 0.0
     dV = 50
     dt = 1.0
     seq = []
     seq_now = 0
-    # left_time = NumericProperty()
+    left_time = 0
     Ve_status = 'Ve'
     Ig_status = 'Ig'
     Ic_status = 'Ic'
@@ -34,41 +36,48 @@ class VeOperation():
     Ig_value =  0
     Ic_value =  0
     P_value =  0
-    portGPIB = ''
-    portRS232 = ''
+    portGPIB = '/dev/tty.usbserial-PXWV0AMC' ### For mac
+    portRS232 = '/dev/tty.usbserial-FTAJM1O6' ### For mac
     VeAddr = 5
     IgAddr = 2
     IcAddr = 1
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.event = threading.Event()
-        self.lock = threading.Lock()
+        self.sched = BackgroundScheduler()
+        # self.sched_cv = BlockingScheduler()
+        # self.sched_hv = BlockingScheduler()
 
-    def connect_device(self):
+    def ConnectDevice(self):
         """Connect to BPHV and initialize gid7
         """
         self.Ve_obj = BPHV.E3640A(self.portGPIB, self.VeAddr)
-        self.Ic_obj = hioki.dmm3239gpib(self.portGPIB, self.IcAddr)
         self.Ig_obj = hioki.dmm3239gpib(self.portGPIB, self.IgAddr)
-        self.P_obj  = gid7.RS232(self.ttyRS232)
+        self.Ic_obj = hioki.dmm3239gpib(self.portGPIB, self.IcAddr)
+        self.P_obj  = gid7.RS232(self.portRS232)
         self.P_obj.RE() # Set GI-D7 into Remote control mode
 
         self.Ve_status = self.Ve_obj.Query('*IDN?')
         msg = self.Ve_obj.Clear()
+        self.Ve_obj.OutOn()
+        self.is_output = True
         self.Ic_status = self.Ic_obj.Query('*IDN?')
         self.Ig_status = self.Ig_obj.Query('*IDN?')
         self.P_status = self.P_obj.GS() # Ask device
         self.Ic_obj.Mode()
         self.Ic_obj.SampleRate(rate='medium')
+        self.Ic_obj.ContTrig()
+        self.Ic_obj.TrigInt(trig=True)
         self.Ig_obj.Mode()
         self.Ig_obj.SampleRate(rate='medium')
+        self.Ig_obj.ContTrig()
+        self.Ig_obj.TrigInt(trig=True)
         self.P_obj.F1() # Turn filament on
 
         self.is_connected = True
         return {'Ve_obj':self.Ve_obj, 'Ic_obj':self.Ic_obj, 'Ig_obj':self.Ig_obj, 'P_obj':self.P_obj} ### Is this needed?
 
-    def disconnect_device(self):
+    def DisconnectDevice(self):
         """Disconnect BPHV
         """
         self.Ve_obj.VoltZero()
@@ -84,194 +93,174 @@ class VeOperation():
         self.P_status  = 'Disconnected'
 
         self.is_connected = False
-    #
-    # def run(self):
-    #     self.thread = threading.Thread(target=self.countup)
-    #     self.thread.start()
-
-    def stop(self):
-        """Stop running thread"""
-        self.event.set()
-        self.thread.join()    # Wait main thread for end subthread
-
-# ### Need modify
-#     def start_timer(self):
-#         self.is_countup = True
-#         Clock.schedule_interval(self.on_countup, dt_meas)
-#         pass
-# ### Need modify
-#     def stop_timer(self):
-#         self.is_countup = False
-#         Clock.unschedule(self.on_countup)
-#         pass
+        self.is_active = False
+        self.is_holdvolt = False
+        self.is_changevolt = False
+        self.is_sequence = False
 
 
-    def increment_Volt(self, volt_target, *largs):
+
+    def _IncrementVolt(self):
         """Callback for increasing voltage
         """
-        self.volt_now = self.Ve_obj.AskVolt()*1000
         volt_raw_now = self.volt_now/1000
         deltaV_raw = self.dV/1000
         next_raw = '{0:.2f}'.format(volt_raw_now + deltaV_raw)
-        if self.volt_now >= volt_target:
-            self.Ve_obj.Instruct('volt ' + str(volt_target/1000))
-            self.volt_now = self.Ve_obj.AskVolt()*1000
-            self.Ve_status = str(self.volt_now)
+        # print('self.volt_now, next_raw are ', self.volt_now, next_raw)
+        if self.volt_now >= self.volt_target:
+            self.Ve_obj.Instruct('volt ' + str(self.volt_target/1000))
             self.is_changevolt = False
             return False
         else:
             self.Ve_obj.Instruct('volt ' + str(next_raw))
-            self.Ve_obj.OutOn()
-            # self.volt_now = '{0:.2f}'.format(Ve_obj.AskVolt())*1000
-            self.volt_now = self.Ve_obj.AskVolt()*1000
-            self.Ve_status = str(self.volt_now)
+            if self.is_output == False:
+                self.Ve_obj.OutOn()
             return True
 
 
-    def decrement_Volt(self, volt_target, *largs):
+    def _DecreamentVolt(self):
         """Callback for decreasing voltage
         """
-        self.volt_now = self.Ve_obj.AskVolt()*1000
         volt_raw_now = self.volt_now/1000
         deltaV_raw = self.dV/1000
         next_raw = '{0:.2f}'.format(volt_raw_now - deltaV_raw)
-        if self.volt_now <= volt_target:
-            self.Ve_obj.Instruct('volt ' + str(volt_target/1000))
-            self.volt_now = self.Ve_obj.AskVolt()*1000
-            self.Ve_status = str(self.volt_now)
+        if self.volt_now <= self.volt_target:
+            self.Ve_obj.Instruct('volt ' + str(self.volt_target/1000))
             self.is_changevolt = False
             return False
         else:
             self.Ve_obj.Instruct('volt ' + str(next_raw))
-            self.Ve_obj.OutOn()
-            self.volt_now = self.Ve_obj.AskVolt()*1000
-            self.Ve_status = str(self.volt_now)
+            if self.is_output == False:
+                self.Ve_obj.OutOn()
             return True
 
-    def change_Volt(self, volt_target, *largs):
+    def ChangeVolt(self):#, volt_target, *largs):
         """Callback for change voltage
         """
         self.volt_now = self.Ve_obj.AskVolt()*1000
-        if self.volt_now == volt_target:
+        if self.volt_now == self.volt_target:
             self.is_changevolt = False
             return False
-        elif self.volt_now < volt_target:
-            self.increment_Volt(volt_target, *largs)
+        elif self.volt_now < self.volt_target:
             self.is_changevolt = True
+            self._IncrementVolt()#self.volt_target)#, *largs)
+            self.is_changevolt = False
             return True
-        elif self.volt_now > volt_target:
-            self.decrement_Volt(volt_target, *largs)
+        elif self.volt_now > self.volt_target:
             self.is_changevolt = True
+            self._DecreamentVolt()#self.volt_target, *largs)
+            self.is_changevolt = False
             return True
         else:
-            print('End change_Volt')
+            print('End ChangeVolt')
             return False
 
 
-    def hold_Volt(self, left_time, *largs):
+    def HoldVolt(self):#, left_time, *largs):
         """Hold voltage output by left_time == 0
         """
         self.volt_now = self.Ve_obj.AskVolt()*1000
         volt_raw_now = self.volt_now/1000
+        self.AquireParam()
         self.Ve_status = str(self.volt_now)
         if self.left_time <= 0:
-            self.seq_now += 1 #シーケンスを1進める
+            self.seq_now += 1 # Step 1 sequence forward
             self.is_holdvolt = False
             return False
-        self.left_time -= 1
+        self.left_time -= self.dt
 
 
-    def aquire_param(self):
+    def AquireParam(self):
         """Callback function for fetching measured values
         """
         ### Update instance variables
-        try:
-            self.Ig_value = self.Ig_obj.Measure()
-            self.Ic_value = self.Ic_obj.Measure()
-            start = time.time()
-            self.P_value  = self.P_obj.RP()
-            #elapsed_time = time.time() - start
-            self.Ve_value = self.volt_now
-            self.Ve_status = str(self.Ve_value)
-            self.Ic_status = str(self.Ic_value)
-            self.Ig_status = str(self.Ig_value)
-            self.P_status  = "{0:1.2e}".format(self.P_value)
+        # try:
+        # self.Ig_value = self.Ig_obj.Measure()
+        self.Ig_value = self.Ig_obj.Fetch()
+        # self.Ic_value = self.Ic_obj.Measure()
+        self.Ic_value = self.Ic_obj.Fetch()
+        start = time.time()
+        self.P_value  = self.P_obj.RP()
+        self.time_now = time.time() - self.time_start
+        self.Ve_value = self.volt_now
+        self.Ve_status = str(self.Ve_value)
+        self.Ic_status = str(self.Ic_value)
+        self.Ig_status = str(self.Ig_value)
+        self.P_status  = "{0:1.2e}".format(self.P_value)
 
-        except ValueError:
-            self.Ig_value = 0
-            self.Ic_value = 0
-            self.P_value  = self.P_obj.RP()
-            self.Ic_status = Ic_obj.ClearBuffer()
-            self.Ig_status = Ig_obj.ClearBuffer()
-            self.P_status  = "{0:1.2e}".format(self.P_value)
+    def IvMeasure(self):
+        """Auto I-V measurement up to the current Ve value with dV/dt rate
+        """
+        self.volt_last = round(self.Ve_obj.AskVolt()*1000)
+        self.is_changevolt = True
+        self.Ve_obj.VoltZero()
+        result = []
+        for i in range(0, self.volt_last+self.dV, self.dV):
+            # volt_raw_now = self.volt_now/1000
+            # deltaV_raw = self.dV/1000
+            next_raw = '{0:.2f}'.format(float(i)/1000)
+            self.Ve_obj.Instruct('volt ' + str(next_raw))
+            time.sleep(self.dt)
+            self.volt_now = self.Ve_obj.AskVolt()*1000
+            self.AquireParam()
+            tmp = [self.Ve_value, self.Ig_value, self.Ic_value, self.P_value]
+            result.append(tmp)
+            print(tmp)
+        self.is_changevolt = False
+        return result
 
 
-    def start_sequence(self):
+    def StartSequence(self):
         """Start voltage sequence
         """
         if self.is_sequence is False:
             self.is_sequence = True
-            # self.thread = threading.Thread(target=self.on_sequence)
-            self.thread = threading.Thread(target=self.test_sequence)
-            self.thread.start()
-            print('Start test_sequence')
-    def stop_sequence(self):
+            self.sched.add_job(self.OnSequence, 'interval', seconds=self.dt)
+            self.sched.start()
+            self.time_start = time.time()
+            print('Start Sequence')
+
+    def StopSequence(self):
         """Stop running voltage sequence
         """
-        self.event.set()
-        self.thread.join()
+        self.sched.remove_all_jobs()
+        self.sched.state = 0
+        self.is_sequence =False
 
-    def test_sequence(self):
-        with self.lock: ### Prohibit multiple change_volt
-            self.is_changevolt = True
-            while self.is_changevolt is True:
-                self.is_active = True
-                self.change_Volt(volt_target=self.volt_target)
-                self.is_active = False
-                time.sleep(self.dt)
-            self.is_sequence = False
-
-    def on_sequence(self, dt):
+    def OnSequence(self):
         """Callback for voltage sequence
         """
-        with self.lock: ### Prohibit multiple change_volt
-            if self.seq_now <= len(self.seq) -1:
-                # print('I am in on_countdonw'+str(self.seq_now))
-                self.volt_target = self.seq[self.seq_now][0]
-                if self.volt_now != self.volt_target:
-                    ### 電圧変更中でない場合
-                    if not self.is_changevolt:
-                        # イベントループに投入
-                        self.is_changevolt = True
-                        print('Now on change voltage')
-                        while self.is_changevolt is True:
-                            self.is_active = True
-                            self.change_Volt(volt_target=self.volt_target)
-                            self.aquire_param()
-                            self.is_active = False
-                            time.sleep(self.dt)
-
-                ### 現在電圧が現在シーケンス設定電圧と等しく, 電圧変更中でなく, hold_Volt中でない場合
-                else:
-                    if not self.is_changevolt and not self.is_holdvolt:
-                        self.is_holdvolt = True
-                        self.left_time = self.seq[self.seq_now][1] #left_timeにシーケンスリスト
-                        # イベントループに投入
-                        print('Now on hold voltage')
-                        while self.is_holdvolt is True:
-                            self.is_active = True
-                            self.hold_Volt(left_time=self.left_time)
-                            self.aquire_param()
-                            self.is_active = False
-                            time.sleep(self.dt)
-
-            # except IndexError:
-            elif self.seq_now > len(self.seq) -1:
-                print('All sequences are finished. Measurement is now stopped.')
-                self.stop_sequence()
+        if self.seq_now <= len(self.seq) -1:
+            # print('I am in on_countdonw'+str(self.seq_now))
+            self.volt_target = self.seq[self.seq_now][0]
+            if self.volt_now != self.volt_target:
+                ### 電圧変更中でない場合
+                if not self.is_changevolt:
+                    # イベントループに投入
+                    self.is_changevolt = True
+                    print('Now on change voltage')
+                    self.ChangeVolt()
 
 
-    def lapse_time(self, t):
+            ### 現在電圧が現在シーケンス設定電圧と等しく, 電圧変更中でなく, HoldVolt中でない場合
+            else:
+                if not self.is_changevolt and not self.is_holdvolt: ### 1st cycle to hold volt on the seq number
+                    self.is_holdvolt = True
+                    self.left_time = self.seq[self.seq_now][1] #left_timeにシーケンスリスト
+                    # イベントループに投入
+                    print('Now on hold voltage')
+                    self.HoldVolt()
+                elif not self.is_changevolt and self.is_holdvolt == True:  ### other than 1st cycle to hold volt on the seq number
+                    self.HoldVolt()
+
+        elif self.seq_now > len(self.seq) -1:
+            print('All sequences are finished. Measurement is now stopped.')
+            self.StopSequence()
+        else:
+            print('Where I am')
+
+
+    def LapseTime(self, t):
         """Retrun lapse time (hh:mm:ss format)
         """
         rh = (t-t%3600)/3600
@@ -279,20 +268,20 @@ class VeOperation():
         rs = t%60
         return "{0:2.0f} H {1:2.0f} M {2:2.0f} ".format(rh,rm,rs)
 
-    def calc_Ttime(self):
+    def CalcTotTime(self):
         l = len(self.seq)
         total=0
         for i in range(l):
             if i == 0:
-                total += (self.seq[i][0]/self.dV)*dt_op
+                total += (self.seq[i][0]/self.dV)*self.dt
             else:
-                total += ((self.seq[i][0]-self.seq[i-1][0])/self.dV)*dt_op
+                total += ((self.seq[i][0]-self.seq[i-1][0])/self.dV)*self.dt
             total += self.seq[i][1]
         return total
 
-    def calc_Rtime(self,t):
-        total = self.total_time()
+    def CalcRestTime(self,t):
+        total = self.CalcTottime()
         rt = total - t
-        return self.lapse_time(rt)
+        return self.LapseTime(rt)
 
 ### Need to make abort_sequence

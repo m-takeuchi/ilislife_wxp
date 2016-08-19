@@ -4,24 +4,29 @@
 import time, os, json, importlib, tempfile
 from importlib import machinery
 import wx
+import mygraph
+import numpy as np
+import datetime as dtm
 
-from threading import Thread
 from wx.lib.pubsub import pub
 
 
 
 class ConfigPanel(wx.Panel):
     cfg_param = {} ### config parameters to be used for another classes
+    var_param = {} ### current status
+    var_arr = [] ### current data to be saveed to file
+
     def __init__(self, parent):
         super(ConfigPanel, self).__init__(parent, wx.ID_ANY)
         # self.SetBackgroundColour("#00FF00")
 
-        self.elt1 = ("element_1", "element_2", "element_4", "element_3", "element_5")
-        self.elt2 = ("element_1", "element_2", "element_4", "element_3", "element_5")
+        self.elt1 = ("Determin from date-time", "Chose from file")
         ### Save file name
         self.cbx_file = wx.ComboBox(self, wx.ID_ANY, "Save to ...", choices=self.elt1, style=wx.CB_DROPDOWN)
+        self.cbx_file.Bind(wx.EVT_COMBOBOX, self.OnSelect)
         ### Set comment to the file
-        self.cbx_cmt = wx.ComboBox(self, wx.ID_ANY, "Comment", choices=self.elt2, style=wx.CB_DROPDOWN)
+        self.txt_cmt = wx.TextCtrl(self, wx.ID_ANY, "Comment")
         ### Config botton
         self.btn_cfg = wx.Button(self, wx.ID_ANY, "Config", wx.DefaultPosition, wx.DefaultSize, 0 )
         self.btn_cfg.Bind(wx.EVT_BUTTON, self.open_cfg)
@@ -30,15 +35,14 @@ class ConfigPanel(wx.Panel):
         self.btn_seq.Bind(wx.EVT_BUTTON, self.open_seq)
         ### Connect botton
         self.btn_cnt = wx.Button(self, wx.ID_ANY, "Connect", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.btn_cnt.Bind(wx.EVT_BUTTON, self.OnConnect)
         ### Start measurement botton
         self.btn_sta = wx.Button(self, wx.ID_ANY, "Start", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.btn_sta.Bind(wx.EVT_BUTTON, self.OnStart)
         ### Reset measurement botton
         self.btn_rst = wx.Button(self, wx.ID_ANY, "Reset", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.btn_rst.Bind(wx.EVT_BUTTON, self.OnReset)
         ### Sequence view
-        # self.seq_view = wx.TextCtrl(self, wx.ID_ANY, style=wx.TE_MULTILINE)
-        # text_tests = [str(txt)+'\n' for txt in range(10)]
-        # for txt in text_tests:
-        #     self.seq_view.AppendText(txt)
         self.seq_view = SeqList(self)
 
         ### Static lines
@@ -49,7 +53,7 @@ class ConfigPanel(wx.Panel):
         ### Layout
         layout = wx.BoxSizer(wx.VERTICAL)
         layout.Add(self.cbx_file, flag=wx.GROW)
-        layout.Add(self.cbx_cmt, flag=wx.GROW)
+        layout.Add(self.txt_cmt, flag=wx.GROW)
         layout.AddSpacer(10)
         layout.Add(self.stl_1, flag=wx.GROW)
         layout.Add(self.btn_cfg, flag=wx.GROW)
@@ -64,6 +68,42 @@ class ConfigPanel(wx.Panel):
         layout.Add(self.seq_view, proportion=1, flag=wx.EXPAND )
         self.SetSizer(layout)
 
+        ### Prepare wx.Timer
+        self.update_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.on_update_timer, self.update_timer)
+        # self.update_timer.Start(1000) #ms
+
+        ### Subscribe sequence information from SequenceSetting class
+        pub.subscribe(self.seq_listen, "seqListner")
+
+    def OnSelect(self, event):
+        item = event.GetSelection()
+        print(item)
+        if item == 0 or None:
+            self.dirName = os.path.dirname(os.path.abspath(__file__))+'/data/'
+            self.fileName = "{0:%y%m%d-%H%M%S}.dat".format(dtm.datetime.now())
+            self.datafilepath = os.path.join(self.dirName, self.fileName)
+            with open(self.datafilepath, 'w') as f:
+                f.write('#'+self.txt_cmt.GetValue())
+                f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\n')
+                # f.writelines(self.seq_str)
+        if item == 1:
+            self.dirName = os.path.dirname(os.path.abspath(__file__))
+            ### Show file dialog to load file
+            dialog = wx.FileDialog(self, "Save data file to", self.dirName, "", "*.dat", wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+            ### Show until pushing OK button
+            if dialog.ShowModal() == wx.ID_OK:
+                self.fileName = dialog.GetFilename()
+                self.dirName = dialog.GetDirectory()
+                self.datafilepath = os.path.join(self.dirName, self.fileName)
+                with open(self.datafilepath, 'w') as f:
+                    f.write('#'+self.txt_cmt)
+                    f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\n')
+                    # f.writelines(self.seq_str)
+            ### Destroy dialog
+            dialog.Destroy()
+
+
     def open_cfg(self, event):
         dialog = ConfigDialog(self)
         if self.cfg_param != {}: ### Second time and later
@@ -73,7 +113,6 @@ class ConfigPanel(wx.Panel):
         try:
             # dialog.ShowModal()
             dialog.Show()
-            print('Tried')
         # finally:
         except:
             pass
@@ -87,6 +126,117 @@ class ConfigPanel(wx.Panel):
     def open_seq(self, event):
         seqSet = SequenceSetting(self)
         seqSet.Show()
+
+    def seq_listen(self, message):
+        """ pub listner to get sequence list from SequenceSetting class
+        """
+        # self.SEQ = message
+        self.seq_var = message
+
+    def OnConnect(self, event):
+        lbl = self.btn_cnt.GetLabel()
+        if lbl == 'Connect':
+            ### Dinamically import ilis module
+            ilis = importlib.import_module('ilis')
+            self.dev = ilis.Operation()
+            self.dev.portGPIB = self.cfg_param['pgx_port']
+            self.dev.VeAddr = int(self.cfg_param['VeAddr'])
+            self.dev.IgAddr = int(self.cfg_param['IgAddr'])
+            self.dev.IcAddr = int(self.cfg_param['IcAddr'])
+            self.dev.portRS232 = self.cfg_param['gid7_port']
+            self.dev.dt = float(self.cfg_param['sampling'])
+            self.dev.dV = float(self.seq_var.dV)
+            self.dev.seq = self.seq_var.SEQ
+            self.dev.left_time = self.dev.seq[self.dev.seq_now] ### Set left time for 1st sequence to hold voltage
+            # dev.P_abt = float(self.cfg_param['pressure_abort'])
+            # dev.P_pst = float(self.cfg_param['pressure_postpone'])
+
+            ### Message dialog for comfirmation
+            yesno_dialog = wx.MessageDialog(self, "Sure to turn on ion guage filament?", "CAUTION", wx.YES_NO | wx.ICON_QUESTION)
+            try:
+                if yesno_dialog.ShowModal() == wx.ID_YES:
+                    self.dev.ConnectDevice()
+                    self.btn_cnt.SetLabel('Disconnect')
+                    self.Close()
+                    return True
+            except Exception as e:
+                print('Error object:\n' + str(e))
+            finally:
+                yesno_dialog.Destroy()
+
+        elif lbl == 'Disconnect':
+            yesno_dialog = wx.MessageDialog(self, "Sure to Disconnect?", "CAUTION", wx.YES_NO | wx.ICON_QUESTION)
+            try:
+                if yesno_dialog.ShowModal() == wx.ID_YES:
+                    self.dev.StopSequence()
+                    self.dev.DisconnectDevice()
+                    self.btn_cnt.SetLabel('Connect')
+                    self.Close()
+            finally:
+                yesno_dialog.Destroy()
+                return False
+        else:
+            return False
+
+    def OnStart(self, event):
+        lbl = self.btn_sta.GetLabel()
+        if not self.dev:
+            return False
+        if self.dev.is_connected == True:
+            if lbl == 'Start':
+                self.btn_sta.SetLabel('Stop')
+                # self.UpdateThread = threading.Thread(target=self.Update)
+                # self.UpdateThread.run()
+                self.update_timer.Start(1000) #ms
+                self.dev.StartSequence()
+                return True
+            elif lbl == 'Stop':
+                self.btn_sta.SetLabel('Start')
+                # self.UpdateThread.join()
+                self.update_timer.Stop()
+                self.dev.StopSequence()
+                return False
+        elif self.dev.is_connected == False:
+            return False
+    def OnReset(self, event):
+        if not self.dev:
+            return False
+        elif self.dev.is_connected == True:
+            self.dev.Ve_obj.VoltZero()
+
+    def on_update_timer(self, event):
+        self.seq_now  = self.dev.seq_now
+        self.Ve_status = self.dev.Ve_status
+        self.Ig_status = self.dev.Ig_status
+        self.Ic_status = self.dev.Ic_status
+        self.P_status  = self.dev.P_status
+        self.Ve_value  = self.dev.Ve_value
+        self.Ig_value  = self.dev.Ig_value
+        self.Ic_value  = self.dev.Ic_value
+        self.P_value  = self.dev.P_value
+
+        ###
+        self.var_param = {'seq_now':self.dev.seq_now, 'Ve_status':self.dev.Ve_status, 'Ig_status':self.dev.Ig_status, 'Ic_status':self.dev.Ic_status, 'P_status':self.dev.P_status, 'Ve_value':self.dev.Ve_value, 'Ig_value':self.dev.Ig_value, 'Ic_value':self.dev.Ic_value, 'P_value':self.dev.P_value}
+        # print(self.var_param)
+        self.var_arr = [self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value]
+        self.append_to_file()
+
+        wx.CallAfter(pub.sendMessage, "varListner", message=self.var_param)
+        # print([self.Ve_value, self.Ig_value, self.Ic_value, self.P_value])
+
+    def append_to_file(self):
+        ## Append data to specific file
+        datastr = ''
+        with open(self.datafilepath, mode = 'a', encoding = 'utf-8') as fh:
+            for data in self.var_arr:
+                datastr += '\t'+str(data)
+            fh.write(str(self.get_ctime()) + datastr + '\n')
+
+    def get_ctime(self):
+        t = dtm.datetime.now()
+        point = (t.microsecond - t.microsecond%10000)/10000
+        app_time = "{0:%y%m%d-%H:%M:%S}.{1:.0f}".format(t, point)
+        return app_time
 
 class SequenceSetting(wx.Frame):
     seq_str = ""
@@ -169,14 +319,15 @@ class SequenceSetting(wx.Frame):
                 self.read_seq()
                 ### Save seq_str as a temporary file
                 fd, path = tempfile.mkstemp()
-                print(path)
+                # print(path)
                 os.write(fd, self.seq_str.encode("utf-8"))
                 ### Dinamically import py module
                 # seq_var = importlib.import_module('sequence')
                 self.seq_var = machinery.SourceFileLoader("seq_var", path).load_module()
                 self.check_seq(self.seq_var)
                 ### Send arg over class
-                pub.sendMessage("seqListner", message=self.seq_var.SEQ)
+                # pub.sendMessage("seqListner", message=self.seq_var.SEQ)
+                pub.sendMessage("seqListner", message=self.seq_var)
                 self.Close()
         finally:
             yesno_dialog.Destroy()
@@ -186,6 +337,7 @@ class SeqList(wx.ListCtrl):
     """Prepare sequence list on the top frame
     """
     SEQ = []
+    seq_var = {}
     def __init__(self, parent):
         super(SeqList, self).__init__(parent, wx.ID_ANY, style=wx.LC_REPORT
                          |wx.BORDER_SUNKEN)
@@ -205,7 +357,9 @@ class SeqList(wx.ListCtrl):
     def seq_listen(self, message):
         """ pub listner to get sequence list from SequenceSetting class
         """
-        self.SEQ = message
+        # self.SEQ = message
+        self.seq_var = message
+        self.SEQ = self.seq_var.SEQ
 
         for i,v in enumerate(self.SEQ):
             self.InsertItem(i, str(i))
@@ -400,12 +554,22 @@ class EmailDetail(wx.Dialog):
 
 
 # import mygraph
-class MyGraphPanel(wx.Panel):
+# class MyGraphPanel(wx.Panel):
+class MyGraphPanel(mygraph.GraphPanel):
     def __init__(self, parent):
         super(MyGraphPanel, self).__init__(parent, wx.ID_ANY)
-        self.SetBackgroundColour("#FF0000")
+        # self.SetBackgroundColour("#FF0000")
+        pub.subscribe(self.var_listen, "varListner")
 
-# class ConfigBotton()
+    def var_listen(self, message):
+        """ pub listner to get var list from SequenceSetting class
+        """
+        # print(message)
+        data = np.array([message['Ve_value'], message['Ig_value'], message['Ic_value'], message['P_value']])
+        # print(data)
+        self.val_arr[0,1:] = data
+        # print(self.val_arr[0:1,:])
+
 
 class TopForm(wx.Frame):
     """MainFrame of this app
@@ -417,12 +581,17 @@ class TopForm(wx.Frame):
         cfp = ConfigPanel(self)
         stb = self.CreateStatusBar()
         stb.SetStatusText( "statusbar text" )
+        pub.subscribe(self.var_listen, "varListner")
 
         layout = wx.BoxSizer(wx.HORIZONTAL)
         layout.Add(cfp, proportion=0.1,flag=wx.GROW | wx.ALL, border=10)
         layout.Add(wx.StaticLine(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_VERTICAL), flag=wx.GROW)
         layout.Add(mgp, proportion=3, flag=wx.EXPAND | wx.RIGHT)
         self.SetSizer(layout)
+
+    def var_listen(self, message):
+        # self.stb.SetStatusText(message)
+        pass
 
 
 if __name__ == "__main__":

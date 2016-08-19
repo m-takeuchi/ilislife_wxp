@@ -18,6 +18,7 @@ import wx
 import matplotlib
 matplotlib.use('WXAgg')
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 from matplotlib.backends.backend_wxagg import \
     FigureCanvasWxAgg as FigCanvas, \
     NavigationToolbar2WxAgg as NavigationToolbar
@@ -30,6 +31,7 @@ class DataGen(object):
     """
     def __init__(self, init=50):
         self.data = self.init = init
+        # print(self.data)
 
     def next(self):
         self._recalc_data()
@@ -47,6 +49,7 @@ class DataGen(object):
             self.data += delta
         else:
             self.data += delta
+
 
 
 class BoundControlBox(wx.Panel):
@@ -70,6 +73,9 @@ class BoundControlBox(wx.Panel):
             size=(35,-1),
             value=str(initval),
             style=wx.TE_PROCESS_ENTER)
+
+        ### Initial state for radio box of Auto range
+        self.radio_auto.SetValue(True)
 
         self.Bind(wx.EVT_UPDATE_UI, self.on_update_manual_text, self.manual_text)
         self.Bind(wx.EVT_TEXT_ENTER, self.on_text_enter, self.manual_text)
@@ -96,73 +102,51 @@ class BoundControlBox(wx.Panel):
     def manual_value(self):
         return self.value
 
-
-class GraphFrame(wx.Frame):
+class GraphPanel(wx.Panel):
     """ The main frame of the application
     """
     title = 'MyGraph Demo: dynamic matplotlib graph'
     t = t0 = 0
     dt = 1000 #ms
     BUFFSIZE = 1000 # 12 hours = 12*3600 sec = 43200
-    COLS = 4 # Number of param you deal with (include time col)
-    val_arr = np.zeros((BUFFSIZE, COLS))
+    COLS = 5 # Number of param you deal with (include time col)
+    val_arr = np.zeros((BUFFSIZE, COLS)) ### Prepare zero array
 
 
-    def __init__(self):
-        # wx.Frame.__init__(self, None, -1, self.title)
-        super().__init__(None, wx.ID_ANY, self.title)
+    def __init__(self, parent, id):
+        # super().__init__(None, wx.ID_ANY, self.title)
+        super().__init__(parent, id=wx.ID_ANY)
 
-        self.datagen = DataGen()
-        self.val_arr[0,0] = self.t0 # Initialization time col's 1st element
-        self.val_arr[0,1:] = [self.datagen.next() for i in range(self.COLS-1)] # Initilaze param cols' 1st elements
+        # self.datagen = DataGen()
+        # self.datagen = DataFetch()
+
+        # self.val_arr[0,0] = self.t0 # Initialization time col's 1st element
+        # self.val_arr[0,1:] = [self.datagen.next() for i in range(self.COLS-1)] # Initilaze param cols' 1st elements
+
 
         self.paused = False
+        # self.paused = True
 
-        # self.create_menu()
-        # self.create_status_bar()
-        self.create_main_panel()
-
-        self.redraw_timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)
-        self.redraw_timer.Start(self.dt)
-
-    # def create_menu(self):
-    #     self.menubar = wx.MenuBar()
-    #
-    #     menu_file = wx.Menu()
-    #     # m_expt = menu_file.Append(-1, "&Save plot\tCtrl-S", "Save plot to file")
-    #     # self.Bind(wx.EVT_MENU, self.on_save_plot, m_expt)
-    #     menu_file.AppendSeparator()
-    #     m_exit = menu_file.Append(-1, "E&xit\tCtrl-X", "Exit")
-    #     self.Bind(wx.EVT_MENU, self.on_exit, m_exit)
-    #
-    #     self.menubar.Append(menu_file, "&File")
-    #     self.SetMenuBar(self.menubar)
-
-    def create_main_panel(self):
-        self.panel = wx.Panel(self)
-
-        #### ここから
+        ### Prepare matplotlib and widgets
         self.init_plot()
-        self.canvas = FigCanvas(self.panel, wx.ID_ANY, self.fig)
-        #### ここまで
+        self.canvas = FigCanvas(self, wx.ID_ANY, self.fig)
 
-        self.xmin_control = BoundControlBox(self.panel, wx.ID_ANY, "X min", -60)
-        self.xmax_control = BoundControlBox(self.panel, wx.ID_ANY, "X max", 0)
-        self.ymin_control = BoundControlBox(self.panel, wx.ID_ANY, "Y min", 0)
-        self.ymax_control = BoundControlBox(self.panel, wx.ID_ANY, "Y max", 100)
+        self.xmin_control = BoundControlBox(self, wx.ID_ANY, "X min", -60)
+        self.xmax_control = BoundControlBox(self, wx.ID_ANY, "X max", 0)
+        self.ymin_control = BoundControlBox(self, wx.ID_ANY, "Y min", 0)
+        self.ymax_control = BoundControlBox(self, wx.ID_ANY, "Y max", 100)
 
-        self.pause_button = wx.Button(self.panel, wx.ID_ANY, "Pause")
+        self.pause_button = wx.Button(self, wx.ID_ANY, "Pause")
         self.Bind(wx.EVT_BUTTON, self.on_pause_button, self.pause_button)
         self.Bind(wx.EVT_UPDATE_UI, self.on_update_pause_button, self.pause_button)
 
-        self.cb_grid = wx.CheckBox(self.panel, wx.ID_ANY,
+        self.cb_grid = wx.CheckBox(self, wx.ID_ANY,
             "Show Grid",
             style=wx.ALIGN_RIGHT)
         self.Bind(wx.EVT_CHECKBOX, self.on_cb_grid, self.cb_grid)
         self.cb_grid.SetValue(True)
 
-        self.cb_xlab = wx.CheckBox(self.panel, wx.ID_ANY,
+        self.cb_xlab = wx.CheckBox(self, wx.ID_ANY,
             "Show X labels",
             style=wx.ALIGN_RIGHT)
         self.Bind(wx.EVT_CHECKBOX, self.on_cb_xlab, self.cb_xlab)
@@ -187,31 +171,52 @@ class GraphFrame(wx.Frame):
         self.vbox.Add(self.hbox1, 0, flag=wx.ALIGN_LEFT | wx.TOP)
         self.vbox.Add(self.hbox2, 0, flag=wx.ALIGN_LEFT | wx.TOP)
 
-        self.panel.SetSizer(self.vbox)
+        self.SetSizer(self.vbox)
         self.vbox.Fit(self)
 
-    def create_status_bar(self):
-        self.statusbar = self.CreateStatusBar()
+        ### Prepare wx.Timer
+        self.redraw_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)
+        self.redraw_timer.Start(self.dt)
+
 
     def init_plot(self):
         self.dpi = 100
-        # self.fig = Figure((3.0, 3.0), dpi=self.dpi)
         self.fig = plt.Figure((3.0, 3.0), dpi=self.dpi)
+        self.gs = gridspec.GridSpec(3, 1, height_ratios=[1, 1, 3])
 
-        self.axes = self.fig.add_subplot(111)
-        self.axes.set_axis_bgcolor((0.1,0.1,0.1,1))
-        self.axes.set_title('Very important random data', size=12)
+        # self.axes = self.fig.add_subplot(111)
+        # self.axes.set_axis_bgcolor((0.1,0.1,0.1,1))
+        # self.axes.set_title('Description', size=12)
+        self.ax1 = self.fig.add_subplot(self.gs[0]) # Voltage
+        self.ax2 = self.fig.add_subplot(self.gs[1]) # Pressure
+        self.ax3 = self.fig.add_subplot(self.gs[2]) # Current
+        # self.ax1.set_title('Ve', size=12)
+        # self.ax2.set_title('Pressure', size=12)
+        # self.ax3.set_title('Current', size=12)
 
-        plt.setp(self.axes.get_xticklabels(), fontsize=8)
-        plt.setp(self.axes.get_yticklabels(), fontsize=8)
-
+        plt.setp(self.ax1.get_xticklabels(), visible=False)
+        plt.setp(self.ax2.get_xticklabels(), visible=False)
+        plt.setp(self.ax3.get_xticklabels(), fontsize=8)
+        plt.setp(self.ax1.get_yticklabels(), fontsize=8)
+        plt.setp(self.ax2.get_yticklabels(), fontsize=8)
+        # self.ax2.set_yscale('symlog')
+        plt.setp(self.ax3.get_yticklabels(), fontsize=8)
 
 
         self.plot_data = []
-        colors = ['red','blue', 'green']
-        for col in range(self.COLS-1):
-            self.plot_data.append(self.axes.plot(self.val_arr[:,0], self.val_arr[:,col+1], linewidth=1, color=colors[col])[0])
-            # print(self.axes.plot(self.val_arr[:,0], self.val_arr[:,col+1], linewidth=1, color=colors[col]))
+        colors = ['red','cyan','green','blue']
+        # for col in range(self.COLS-1):
+            # self.plot_data.append(self.axes.plot(self.val_arr[:,0], self.val_arr[:,col+1], linewidth=1, color=colors[col])[0])
+        # Ve
+        self.plot_data.append(self.ax1.plot(self.val_arr[:,0], self.val_arr[:,1], linewidth=1, color=colors[0])[0])
+        # Ig
+        self.plot_data.append(self.ax3.plot(self.val_arr[:,0], self.val_arr[:,2], linewidth=1, color=colors[2])[0])
+        # Ic
+        self.plot_data.append(self.ax3.plot(self.val_arr[:,0], self.val_arr[:,3], linewidth=1, color=colors[3])[0])
+        # P
+        self.plot_data.append(self.ax2.plot(self.val_arr[:,0], self.val_arr[:,4], linewidth=1, color=colors[1])[0])
+
 
     def draw_plot(self):
         """ Redraws the plot
@@ -227,29 +232,50 @@ class GraphFrame(wx.Frame):
             xmin = int(self.xmin_control.manual_value())
 
 
+        ymin1 = round(self.val_arr[:,1].min()) - 1
+        ymax1 = round(self.val_arr[:,1].max()) + 1
+        ymin2 = self.val_arr[:,4].min()
+        ymax2 = self.val_arr[:,4].max()
+
         if self.ymin_control.is_auto():
-            ymin = round(min(self.data), 0) - 1
+            # ymin = round(self.val_arr[:,1:].min()) - 1
+            ymin3 = self.val_arr[:,2:4].min()
         else:
-            ymin = int(self.ymin_control.manual_value())
+            ymin3 = self.ymin_control.manual_value()
 
         if self.ymax_control.is_auto():
-            ymax = round(max(self.data), 0) + 1
+            # ymax = round(self.val_arr[:,1:].max()) + 1
+            ymax3 = self.val_arr[:,2:4].max()
         else:
-            ymax = int(self.ymax_control.manual_value())
+            ymax3 = self.ymax_control.manual_value()
 
-        self.axes.set_xbound(lower=xmin, upper=xmax)
-        self.axes.set_ybound(lower=ymin, upper=ymax)
+        # self.axes.set_xbound(lower=xmin, upper=xmax)
+        # self.axes.set_ybound(lower=ymin, upper=ymax)
+        self.ax1.set_xbound(lower=xmin, upper=xmax)
+        self.ax1.set_ybound(lower=ymin1, upper=ymax1)
+        self.ax2.set_xbound(lower=xmin, upper=xmax)
+        self.ax2.set_ybound(lower=ymin2, upper=ymax2)
+        self.ax3.set_xbound(lower=xmin, upper=xmax)
+        self.ax3.set_ybound(lower=ymin3, upper=ymax3)
 
         if self.cb_grid.IsChecked():
-            self.axes.grid(True, color='gray')
+            # self.axes.grid(True, color='gray')
+            self.ax1.grid(True, color='gray')
+            self.ax2.grid(True, color='gray')
+            self.ax3.grid(True, color='gray')
         else:
-            self.axes.grid(False)
+            # self.axes.grid(False)
+            self.ax1.grid(False)
+            self.ax2.grid(False)
+            self.ax3.grid(False)
+
+        # plt.setp(self.axes.get_xticklabels(),          visible=self.cb_xlab.IsChecked())
+        plt.setp(self.ax1.get_xticklabels(), visible=False)
+        plt.setp(self.ax2.get_xticklabels(), visible=False)
+        plt.setp(self.ax3.get_xticklabels(), visible=self.cb_xlab.IsChecked())
 
 
-        plt.setp(self.axes.get_xticklabels(),
-            visible=self.cb_xlab.IsChecked())
-
-
+        ### Ve, Ig, Ic, P
         for col in range(self.COLS-1):
             self.plot_data[col].set_xdata(self.val_arr[:, 0])
             self.plot_data[col].set_ydata(self.val_arr[:, col+1])
@@ -275,15 +301,13 @@ class GraphFrame(wx.Frame):
             self.t += self.dt/1000
             # self.val_arr[0,0] = self.t
             self.val_arr[:,0] = np.arange(0,-self.BUFFSIZE*self.dt/1000,-self.dt/1000)
-            self.val_arr[0,1:] = [self.datagen.next() for i in range(self.COLS-1)]
-            print(self.val_arr)
-            self.draw_plot()
-        # self.draw_plot()
-        # print(self.val_arr)
 
-    def on_exit(self, event):
-        self.Destroy()
-    #
+            ### Put values by self.datagen.next
+            # self.val_arr[0,1:] = [self.datagen.read() for i in range(self.COLS-1)]
+
+            self.draw_plot()
+
+
     # def flash_status_message(self, msg, flash_len_ms=1500):
     #     self.statusbar.SetStatusText(msg)
     #     self.timeroff = wx.Timer(self)
@@ -297,9 +321,19 @@ class GraphFrame(wx.Frame):
     #     self.statusbar.SetStatusText('')
 
 
+class TopFrame(wx.Frame):
+    title = 'hoge'
+    def __init__(self):
+        super().__init__(None, wx.ID_ANY, self.title, size=(600,400))
+        self.mygraph = GraphPanel(self)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        layout.Add(self.mygraph, proportion=1, flag=wx.EXPAND|wx.ALL)
+        self.SetSizer(layout)
+
 if __name__ == '__main__':
     # app = wx.PySimpleApp()
     app = wx.App()
-    app.frame = GraphFrame()
+    app.frame = TopFrame()
+    # print(app.frame.mygraph.val_arr)
     app.frame.Show()
     app.MainLoop()
