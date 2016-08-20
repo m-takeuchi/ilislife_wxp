@@ -199,11 +199,12 @@ class Operation():
         # self.volt_last = round(self.Ve_obj.AskVolt()*1000)
         # target = self.volt_last+self.dV
         self.is_iv = True
-        target = targetvolt+self.dV
+        target = int(targetvolt+self.dV)
+        step = int(self.dV)
         self.is_changevolt = True
         self.Ve_obj.VoltZero()
         result = []
-        for i in range(0, target, self.dV):
+        for i in range(0, target, step):
             next_raw = '{0:.2f}'.format(float(i)/1000)
             self.Ve_obj.Instruct('volt ' + str(next_raw))
             time.sleep(self.dtiv)
