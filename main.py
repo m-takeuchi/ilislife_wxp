@@ -84,8 +84,8 @@ class ConfigPanel(wx.Panel):
             self.fileName = "{0:%y%m%d-%H%M%S}.dat".format(dtm.datetime.now())
             self.datafilepath = os.path.join(self.dirName, self.fileName)
             with open(self.datafilepath, 'w') as f:
-                f.write('#'+self.txt_cmt.GetValue())
-                f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\n')
+                f.write('#'+self.txt_cmt.GetValue()+'\n')
+                f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\tIV_No\n')
                 # f.writelines(self.seq_str)
         if item == 1:
             self.dirName = os.path.dirname(os.path.abspath(__file__))
@@ -97,8 +97,8 @@ class ConfigPanel(wx.Panel):
                 self.dirName = dialog.GetDirectory()
                 self.datafilepath = os.path.join(self.dirName, self.fileName)
                 with open(self.datafilepath, 'w') as f:
-                    f.write('#'+self.txt_cmt)
-                    f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\n')
+                    f.write('#'+self.txt_cmt.GetValue()+'\n')
+                    f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\tIV_No\n')
                     # f.writelines(self.seq_str)
             ### Destroy dialog
             dialog.Destroy()
@@ -185,14 +185,11 @@ class ConfigPanel(wx.Panel):
         if self.dev.is_connected == True:
             if lbl == 'Start':
                 self.btn_sta.SetLabel('Stop')
-                # self.UpdateThread = threading.Thread(target=self.Update)
-                # self.UpdateThread.run()
-                self.update_timer.Start(1000) #ms
+                self.update_timer.Start(1000) #ms, Should is this self.dev.dt?
                 self.dev.StartSequence()
                 return True
             elif lbl == 'Stop':
                 self.btn_sta.SetLabel('Start')
-                # self.UpdateThread.join()
                 self.update_timer.Stop()
                 self.dev.StopSequence()
                 return False
@@ -216,20 +213,40 @@ class ConfigPanel(wx.Panel):
         self.P_value  = self.dev.P_value
 
         ###
-        self.var_param = {'seq_now':self.dev.seq_now, 'Ve_status':self.dev.Ve_status, 'Ig_status':self.dev.Ig_status, 'Ic_status':self.dev.Ic_status, 'P_status':self.dev.P_status, 'Ve_value':self.dev.Ve_value, 'Ig_value':self.dev.Ig_value, 'Ic_value':self.dev.Ic_value, 'P_value':self.dev.P_value}
+        self.var_param = {'dt':self.dev.dt, 'seq_now':self.dev.seq_now, 'Ve_status':self.dev.Ve_status, 'Ig_status':self.dev.Ig_status, 'Ic_status':self.dev.Ic_status, 'P_status':self.dev.P_status, 'Ve_value':self.dev.Ve_value, 'Ig_value':self.dev.Ig_value, 'Ic_value':self.dev.Ic_value, 'P_value':self.dev.P_value}
         # print(self.var_param)
-        self.var_arr = [self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value]
+        if self.dev.is_iv == True:
+            self.var_arr = [self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value, self.dev.count_iv]
+        else:
+            self.var_arr = [self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value, 0]
+        ### Normal data append for time-dependent measuremt
         self.append_to_file()
+        ### I-V data save
+        # if self.dev.is_iv == True:
+        #     if
 
         wx.CallAfter(pub.sendMessage, "varListner", message=self.var_param)
         # print([self.Ve_value, self.Ig_value, self.Ic_value, self.P_value])
 
+    def prepare_ivdatafile(self):
+        self.ivfileName = self.fileName.rsplit('.dat')[0]+'_iv'+'{0:03d}'.format(self.dev.count_iv)+'.dat'
+        self.ivdatafilepath = os.path.join(self.dirName, self.ivfileName)
+        with open(self.ivdatafilepath, 'w') as f:
+            f.write('#'+self.ivfileName+'\n')
+            f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\n')
+    def append_ivdatafile(self):
+        datastr = ''
+        for data in self.var_arr:
+            datastr += '\t'+str(data)
+        with open(self.ivdatafilepath, 'a') as fh:
+            fh.write(str(self.get_ctime()) + datastr + '\n')
+
     def append_to_file(self):
         ## Append data to specific file
         datastr = ''
+        for data in self.var_arr:
+            datastr += '\t'+str(data)
         with open(self.datafilepath, mode = 'a', encoding = 'utf-8') as fh:
-            for data in self.var_arr:
-                datastr += '\t'+str(data)
             fh.write(str(self.get_ctime()) + datastr + '\n')
 
     def get_ctime(self):
@@ -370,9 +387,6 @@ class SeqList(wx.ListCtrl):
 # class ConfigDialog(wx.Dialog):
 class ConfigDialog(wx.Frame):
     cfg_param = {} ### config parameters to be going to read from config.json
-
-    # def __init__(self, parent):
-    #     super(ConfigDialog, self).__init__(parent, wx.ID_ANY, title="Config Dialog", size=(400,300))
     def __init__(self, parent):
         super(ConfigDialog, self).__init__(parent, wx.ID_ANY, title="Config")
         if self.cfg_param == {}:
@@ -565,6 +579,7 @@ class MyGraphPanel(mygraph.GraphPanel):
         """ pub listner to get var list from SequenceSetting class
         """
         # print(message)
+        self.dt = message['dt']
         data = np.array([message['Ve_value'], message['Ig_value'], message['Ic_value'], message['P_value']])
         # print(data)
         self.val_arr[0,1:] = data

@@ -107,8 +107,9 @@ class GraphPanel(wx.Panel):
     """
     title = 'MyGraph Demo: dynamic matplotlib graph'
     t = t0 = 0
-    dt = 1000 #ms
-    BUFFSIZE = 1000 # 12 hours = 12*3600 sec = 43200
+    dt = 1.0 #s
+    dtms = dt*1000 #ms
+    BUFFSIZE = 43200 # 12 hours = 12*3600 sec = 43200
     COLS = 5 # Number of param you deal with (include time col)
     val_arr = np.zeros((BUFFSIZE, COLS)) ### Prepare zero array
 
@@ -177,7 +178,7 @@ class GraphPanel(wx.Panel):
         ### Prepare wx.Timer
         self.redraw_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)
-        self.redraw_timer.Start(self.dt)
+        self.redraw_timer.Start(self.dtms)
 
 
     def init_plot(self):
@@ -298,9 +299,9 @@ class GraphPanel(wx.Panel):
     def on_redraw_timer(self, event):
         if not self.paused:
             self.val_arr = np.roll(self.val_arr, 1, axis=0) # Roll 1 element forward
-            self.t += self.dt/1000
+            self.t += self.dt
             # self.val_arr[0,0] = self.t
-            self.val_arr[:,0] = np.arange(0,-self.BUFFSIZE*self.dt/1000,-self.dt/1000)
+            self.val_arr[:,0] = np.arange(0, -self.BUFFSIZE*self.dt, -self.dt)
 
             ### Put values by self.datagen.next
             # self.val_arr[0,1:] = [self.datagen.read() for i in range(self.COLS-1)]
