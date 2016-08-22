@@ -110,8 +110,9 @@ class ConfigPanel(wx.Panel):
             # dialog.ShowModal()
             dialog.Show()
         finally:
+            # dialog.Destroy()
             self.cfg_param = dialog.cfg_param
-            print(self.cfg_param)
+            # print(self.cfg_param)
             # dialog.Destroy()
             # print('Destroied')
         # self.cfg_param = dialog.cfg_param
@@ -390,7 +391,9 @@ class ConfigDialog(wx.Frame):
             print('Loaded default config')
         elif cfg != {}:
             self.cfg_param = cfg
+            # self.load_default()
             print('Loaded dafault2 config')
+            print(cfg)
             # print(self.cfg_param)
 
         ### Sampling period
@@ -501,6 +504,7 @@ class ConfigDialog(wx.Frame):
             self.update_config()
         ### Destroy dialog
         dialog.Destroy()
+        # print(self.cfg_param)
 
     def button_save_click(self, event):
         self.read_config()
