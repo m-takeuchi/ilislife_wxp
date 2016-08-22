@@ -77,17 +77,17 @@ class ConfigPanel(wx.Panel):
         pub.subscribe(self.seq_listen, "seqListner")
 
     def OnSelect(self, event):
-        item = event.GetSelection()
-        print(item)
-        if item == 0 or None:
+        self.fileopt = event.GetSelection()
+        print(self.fileopt)
+        if self.fileopt == 0 or None:
             self.dirName = os.path.dirname(os.path.abspath(__file__))+'/data/'
             self.fileName = "{0:%y%m%d-%H%M%S}.dat".format(dtm.datetime.now())
             self.datafilepath = os.path.join(self.dirName, self.fileName)
-            with open(self.datafilepath, 'w') as f:
-                f.write('#'+self.txt_cmt.GetValue()+'\n')
-                f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\tIV_No\n')
-                # f.writelines(self.seq_str)
-        if item == 1:
+            # with open(self.datafilepath, 'w') as f:
+            #     f.write('#'+self.txt_cmt.GetValue()+'\n')
+            #     f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\tIV_No\n')
+            #     # f.writelines(self.seq_str)
+        if self.fileopt == 1:
             self.dirName = os.path.dirname(os.path.abspath(__file__))
             ### Show file dialog to load file
             dialog = wx.FileDialog(self, "Save data file to", self.dirName, "", "*.dat", wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
@@ -96,13 +96,21 @@ class ConfigPanel(wx.Panel):
                 self.fileName = dialog.GetFilename()
                 self.dirName = dialog.GetDirectory()
                 self.datafilepath = os.path.join(self.dirName, self.fileName)
-                with open(self.datafilepath, 'w') as f:
-                    f.write('#'+self.txt_cmt.GetValue()+'\n')
-                    f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\tIV_No\n')
+                # with open(self.datafilepath, 'w') as f:
+                #     f.write('#'+self.txt_cmt.GetValue()+'\n')
+                #     f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\tIV_No\n')
                     # f.writelines(self.seq_str)
             ### Destroy dialog
             dialog.Destroy()
 
+    def SaveHeader(self):
+        if self.fileopt == 0 or None:
+            self.dirName = os.path.dirname(os.path.abspath(__file__))+'/data/'
+            self.fileName = "{0:%y%m%d-%H%M%S}.dat".format(dtm.datetime.now())
+            self.datafilepath = os.path.join(self.dirName, self.fileName)
+        with open(self.datafilepath, 'w') as f:
+            f.write('#'+self.txt_cmt.GetValue()+'\n')
+            f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\tIV_No\n')
 
     def open_cfg(self, event):
         dialog = ConfigDialog(self, self.cfg_param)
@@ -181,6 +189,7 @@ class ConfigPanel(wx.Panel):
         if self.dev.is_connected == True:
             if lbl == 'Start':
                 self.btn_sta.SetLabel('Stop')
+                self.SaveHeader() # Make datafile only with header
                 self.update_timer.Start(1000) #ms, Should is this self.dev.dt?
                 self.dev.StartSequence()
                 return True
@@ -212,9 +221,9 @@ class ConfigPanel(wx.Panel):
         self.var_param = {'dt':self.dev.dt, 'seq_now':self.dev.seq_now, 'Ve_status':self.dev.Ve_status, 'Ig_status':self.dev.Ig_status, 'Ic_status':self.dev.Ic_status, 'P_status':self.dev.P_status, 'Ve_value':self.dev.Ve_value, 'Ig_value':self.dev.Ig_value, 'Ic_value':self.dev.Ic_value, 'P_value':self.dev.P_value}
         # print(self.var_param)
         if self.dev.is_iv == True:
-            self.var_arr = [self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value, self.dev.count_iv]
+            self.var_arr = [round(self.dev.time_now), self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value, self.dev.count_iv]
         else:
-            self.var_arr = [self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value, 0]
+            self.var_arr = [round(self.dev.time_now), self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value, 0]
         ### Normal data append for time-dependent measuremt
         self.append_to_file()
         ### I-V data save
@@ -463,7 +472,7 @@ class ConfigDialog(wx.Frame):
 
     def load_default(self):
         self.dirName = os.path.dirname(os.path.abspath(__file__))
-        self.fileName = 'config.json'
+        self.fileName = 'config_mac.json'
         try:
             with open(os.path.join(self.dirName, self.fileName), 'r') as f:
                 self.cfg_param = json.load(f)
