@@ -105,23 +105,18 @@ class ConfigPanel(wx.Panel):
 
 
     def open_cfg(self, event):
-        dialog = ConfigDialog(self)
-        if self.cfg_param != {}: ### Second time and later
-            dialog.cfg_param = self.cfg_param  ### Initialize instance's variable
-            dialog.update_config()
-        # print(self.cfg_param)
+        dialog = ConfigDialog(self, self.cfg_param)
         try:
             # dialog.ShowModal()
             dialog.Show()
-        # finally:
-        except:
-            pass
-        else:
+        finally:
             self.cfg_param = dialog.cfg_param
-            # print(self.cfg_param)
+            print(self.cfg_param)
             # dialog.Destroy()
             # print('Destroied')
+        # self.cfg_param = dialog.cfg_param
         return True
+        # return self.cfg_param
 
     def open_seq(self, event):
         seqSet = SequenceSetting(self)
@@ -386,11 +381,17 @@ class SeqList(wx.ListCtrl):
 
 # class ConfigDialog(wx.Dialog):
 class ConfigDialog(wx.Frame):
-    cfg_param = {} ### config parameters to be going to read from config.json
-    def __init__(self, parent):
+    # cfg_param = {} ### config parameters to be going to read from config.json
+    def __init__(self, parent, cfg):
         super(ConfigDialog, self).__init__(parent, wx.ID_ANY, title="Config")
-        if self.cfg_param == {}:
-            self.load_default()
+        # if self.cfg_param == {}:
+        if cfg == {}:
+            self.load_default() # This input default params into self.cfg_param
+            print('Loaded default config')
+        elif cfg != {}:
+            self.cfg_param = cfg
+            print('Loaded dafault2 config')
+            # print(self.cfg_param)
 
         ### Sampling period
         self.lbl_sampling = wx.StaticText(self, wx.ID_ANY, "Sampling period (s)")
@@ -446,9 +447,9 @@ class ConfigDialog(wx.Frame):
         btn_apply = wx.Button(self, wx.ID_ANY, "Apply")
         btn_apply.Bind(wx.EVT_BUTTON, self.button_apply_click)
         hbox_btn = wx.BoxSizer(wx.HORIZONTAL)
-        hbox_btn.Add(btn_load, proportion=1, flag=wx.GROW | wx.ALL, border=10)
-        hbox_btn.Add(btn_save, proportion=1,  flag=wx.GROW | wx.ALL, border=10)
-        hbox_btn.Add(btn_apply,  proportion=1, flag=wx.GROW | wx.ALL, border=10)
+        hbox_btn.Add(btn_load, proportion=1, flag=wx.GROW, border=10)
+        hbox_btn.Add(btn_save, proportion=1,  flag=wx.GROW, border=10)
+        hbox_btn.Add(btn_apply,  proportion=1, flag=wx.GROW, border=10)
 
         layout = wx.BoxSizer(wx.VERTICAL)
         # layout.Add(pnl_dtl, flag=wx.GROW)
@@ -523,6 +524,8 @@ class ConfigDialog(wx.Frame):
         try:
             if yesno_dialog.ShowModal() == wx.ID_YES:
                 self.read_config()
+                # self.update_config()
+                # print(self.cfg_param)
                 self.Close()
         finally:
             yesno_dialog.Destroy()

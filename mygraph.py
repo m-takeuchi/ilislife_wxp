@@ -119,7 +119,6 @@ class GraphPanel(wx.Panel):
         super().__init__(parent, id=wx.ID_ANY)
 
         # self.datagen = DataGen()
-        # self.datagen = DataFetch()
 
         # self.val_arr[0,0] = self.t0 # Initialization time col's 1st element
         # self.val_arr[0,1:] = [self.datagen.next() for i in range(self.COLS-1)] # Initilaze param cols' 1st elements
@@ -242,13 +241,13 @@ class GraphPanel(wx.Panel):
             # ymin = round(self.val_arr[:,1:].min()) - 1
             ymin3 = self.val_arr[:,2:4].min()
         else:
-            ymin3 = self.ymin_control.manual_value()
+            ymin3 = float(self.ymin_control.manual_value())
 
         if self.ymax_control.is_auto():
             # ymax = round(self.val_arr[:,1:].max()) + 1
             ymax3 = self.val_arr[:,2:4].max()
         else:
-            ymax3 = self.ymax_control.manual_value()
+            ymax3 = float(self.ymax_control.manual_value())
 
         # self.axes.set_xbound(lower=xmin, upper=xmax)
         # self.axes.set_ybound(lower=ymin, upper=ymax)
