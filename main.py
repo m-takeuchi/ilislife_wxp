@@ -472,7 +472,7 @@ class ConfigDialog(wx.Frame):
 
     def load_default(self):
         self.dirName = os.path.dirname(os.path.abspath(__file__))
-        self.fileName = 'config_mac.json'
+        self.fileName = 'config.json'
         try:
             with open(os.path.join(self.dirName, self.fileName), 'r') as f:
                 self.cfg_param = json.load(f)
