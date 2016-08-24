@@ -21,6 +21,7 @@ class ConfigPanel(wx.Panel):
         super(ConfigPanel, self).__init__(parent, wx.ID_ANY)
         # self.SetBackgroundColour("#00FF00")
 
+
         self.elt1 = ("Determin from date-time", "Chose from file")
         ### Save file name
         self.cbx_file = wx.ComboBox(self, wx.ID_ANY, "Save to ...", choices=self.elt1, style=wx.CB_DROPDOWN)
@@ -73,6 +74,8 @@ class ConfigPanel(wx.Panel):
         self.Bind(wx.EVT_TIMER, self.on_update_timer, self.update_timer)
         # self.update_timer.Start(1000) #ms
 
+        ### Subscribe config informations from ConfigDialog class
+        pub.subscribe(self.cfg_listen, "cfgListner")
         ### Subscribe sequence information from SequenceSetting class
         pub.subscribe(self.seq_listen, "seqListner")
 
@@ -83,10 +86,6 @@ class ConfigPanel(wx.Panel):
             self.dirName = os.path.dirname(os.path.abspath(__file__))+'/data/'
             self.fileName = "{0:%y%m%d-%H%M%S}.dat".format(dtm.datetime.now())
             self.datafilepath = os.path.join(self.dirName, self.fileName)
-            # with open(self.datafilepath, 'w') as f:
-            #     f.write('#'+self.txt_cmt.GetValue()+'\n')
-            #     f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\tIV_No\n')
-            #     # f.writelines(self.seq_str)
         if self.fileopt == 1:
             self.dirName = os.path.dirname(os.path.abspath(__file__))
             ### Show file dialog to load file
@@ -96,10 +95,6 @@ class ConfigPanel(wx.Panel):
                 self.fileName = dialog.GetFilename()
                 self.dirName = dialog.GetDirectory()
                 self.datafilepath = os.path.join(self.dirName, self.fileName)
-                # with open(self.datafilepath, 'w') as f:
-                #     f.write('#'+self.txt_cmt.GetValue()+'\n')
-                #     f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\tIV_No\n')
-                    # f.writelines(self.seq_str)
             ### Destroy dialog
             dialog.Destroy()
 
@@ -126,6 +121,11 @@ class ConfigPanel(wx.Panel):
         # self.cfg_param = dialog.cfg_param
         return True
         # return self.cfg_param
+
+    def cfg_listen(self, message):
+        """ pub listner to get config dict from ConfigPanel class
+        """
+        self.cfg_param = message
 
     def open_seq(self, event):
         seqSet = SequenceSetting(self)
@@ -525,7 +525,7 @@ class ConfigDialog(wx.Frame):
             self.fileName = dialog.GetFilename()
             self.dirName = dialog.GetDirectory()
             with open(os.path.join(self.dirName, self.fileName), 'w') as f:
-                json.dump(self.cfg_param , f, sort_keys=True, indent=4)
+                json.dump(self.cfg_param, f, sort_keys=True, indent=4)
             # print(self.cfg_param)
         ### Destroy dialog
         dialog.Destroy()
@@ -540,6 +540,7 @@ class ConfigDialog(wx.Frame):
                 # self.update_config()
                 # print(self.cfg_param)
                 self.Close()
+                pub.sendMessage("cfgListner", message=self.cfg_param)
         finally:
             yesno_dialog.Destroy()
         return True
