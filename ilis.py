@@ -49,8 +49,8 @@ class Operation():
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # self.sched = BackgroundScheduler() ###
-        self.sched = BlockingScheduler()
+        self.sched = BackgroundScheduler() ###
+        #self.sched = BlockingScheduler()
 
     def ConnectDevice(self):
         """Connect to BPHV and initialize gid7
@@ -240,8 +240,11 @@ class Operation():
         self.volt_target = self.seq[self.seq_now][0]
         ### Insert I-V measurement
         if self.count % round(self.period/self.dt) == 0:
-            self.IvMeasure(self.volt_target)
-            self.count_iv += 1
+            try:
+                self.IvMeasure(self.volt_target)
+                self.count_iv += 1
+            except MaxInstancesReachedError:
+                pass
         ### Normal time-dependent measuremt
         if self.seq_now <= len(self.seq) -1:
 
