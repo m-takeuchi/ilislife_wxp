@@ -4,7 +4,7 @@ local_test
 old
 data
 pass.rsa
-
+.ipynb*
 
 *.DS_Store
 .AppleDouble
