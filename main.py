@@ -218,7 +218,7 @@ class ConfigPanel(wx.Panel):
         self.P_value  = self.dev.P_value
 
         ###
-        self.var_param = {'dt':self.dev.dt, 'seq_now':self.dev.seq_now, 'Ve_status':self.dev.Ve_status, 'Ig_status':self.dev.Ig_status, 'Ic_status':self.dev.Ic_status, 'P_status':self.dev.P_status, 'Ve_value':self.dev.Ve_value, 'Ig_value':self.dev.Ig_value, 'Ic_value':self.dev.Ic_value, 'P_value':self.dev.P_value}
+        self.var_param = {'dt':self.dev.dt, 'seq_now':self.dev.seq_now, 'time_now':self.dev.time_now, 'Ve_status':self.dev.Ve_status, 'Ig_status':self.dev.Ig_status, 'Ic_status':self.dev.Ic_status, 'P_status':self.dev.P_status, 'Ve_value':self.dev.Ve_value, 'Ig_value':self.dev.Ig_value, 'Ic_value':self.dev.Ic_value, 'P_value':self.dev.P_value}
         # print(self.var_param)
         if self.dev.is_iv == True:
             self.var_arr = [round(self.dev.time_now), self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value, self.dev.count_iv]
@@ -621,8 +621,17 @@ class TopForm(wx.Frame):
         layout.Add(mgp, proportion=3, flag=wx.EXPAND | wx.RIGHT)
         self.SetSizer(layout)
 
+    def format_info(self, d):
+        fmt_txt = ""
+        var_list = [d['time_now'], d['seq_now'], d['Ve_status'], d['Ig_status'], d['Ic_status'], d['P_status']]
+        lab_list = ['Time(s)', 'Seq.No','Ve','Ig','Ic','P']
+        for i,v in enumerate(var_list):
+            fmt_txt.append(i+': '+str(v))
+        return fmt_txt
+
     def var_listen(self, message):
-        # self.stb.SetStatusText(message)
+        info_txt = self.format_info(message)
+        self.stb.SetStatusText(info_txt)
         pass
 
 
