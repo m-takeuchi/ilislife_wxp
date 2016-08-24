@@ -49,9 +49,8 @@ class Operation():
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.sched = BackgroundScheduler()
-        # self.sched_cv = BlockingScheduler()
-        # self.sched_hv = BlockingScheduler()
+        # self.sched = BackgroundScheduler() ###
+        self.sched = BlockingScheduler()
 
     def ConnectDevice(self):
         """Connect to BPHV and initialize gid7

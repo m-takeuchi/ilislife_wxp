@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-MyGraph.py, modified from demo python script by Eli Bendersky (eliben@gmail.com), is real time plotting with wxPython Phoenix
+mygraph.py, modified from demo python script by Eli Bendersky (eliben@gmail.com), is real time plotting with wxPython Phoenix
 
 """
 import os
