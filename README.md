@@ -3,8 +3,6 @@ GUI app for measuring long-time emission current of Ionic Liquid Ion Source.
 ilislife_wxp is implemented with wxpython phoenix, APScheduler, pyserial and Matplotlib.
 
 
-![On ubuntu 16.04 LTS](Screenshot from 2016-08-24 15-31-47.png)
-
 # Setup
 ## On Ubuntu 16.04 LTS
 Run below on your terminal.
@@ -53,8 +51,9 @@ python main.py
 * sequence save func  :ballot_box_with_check:
 * Misc warnings like """Execution of job "Operation.OnSequence (trigger: interval[0:00:01], next run at: 2016-08-20 13:16:09 JST)" skipped: maximum number of running instances reached (1)
 """
-* Modify for setting auto yscale to fit current displaying data in mygraph  :ballot_box_with_check:
+* Modify for setting auto yscale to fit current displaying data in mygraph
 * Labeles on Mygraph
+* Sequence indicator shows current step visually
 
 
 ## License
