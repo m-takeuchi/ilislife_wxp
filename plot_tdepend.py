@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 
 # datafile = 'data/160725-171642.dat'
+def Ve_correct(Ve, Ig, Rprotect):
+    Vext = Ve - Ig*Rprotect
+    return Vext
 
 def generate_plot(datafile):
     base = datafile.rsplit('.dat')[0]
