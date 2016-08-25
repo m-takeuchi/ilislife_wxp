@@ -47,14 +47,19 @@ python main.py
 ```
 
 # TODO
-* Bug fix: Comment func :ballot_box_with_check:
-* config save and load func  :ballot_box_with_check:
-* sequence save func  :ballot_box_with_check:
-* Misc warnings like """Execution of job "Operation.OnSequence (trigger: interval[0:00:01], next run at: 2016-08-20 13:16:09 JST)" skipped: maximum number of running instances reached (1)
-"""
-* Modify for setting auto yscale to fit current displaying data in mygraph
-* Labeles on Mygraph
+* Bug: comment func :ballot_box_with_check:
+* Bug: config save and load func  :ballot_box_with_check:
+* Mod: Labeles on Mygraph :ballot_box_with_check:
+* Bug: sequence save func
+* Misc warnings like :
+```
+Execution of job "Operation.OnSequence (trigger: interval[0:00:01], next run at: 2016-08-20 13:16:09 JST)" skipped: maximum number of running instances reached (1)
+```
+* Modify for setting auto yscale to fit current displaying data in mygraph :ballot_box_with_check:
 * Sequence indicator shows current step visually
+* Statusbar
+* log
+* compress data file
 
 
 ## License
