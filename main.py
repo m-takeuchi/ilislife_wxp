@@ -626,7 +626,7 @@ class TopForm(wx.Frame):
         var_list = [d['time_now'], d['seq_now'], d['Ve_status'], d['Ig_status'], d['Ic_status'], d['P_status']]
         lab_list = ['Time(s)', 'Seq.No','Ve','Ig','Ic','P']
         for i,v in enumerate(var_list):
-            fmt_txt.append(i+': '+str(v))
+            fmt_txt += i+': '+str(v)
         return fmt_txt
 
     def var_listen(self, message):
