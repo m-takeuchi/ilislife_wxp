@@ -193,7 +193,7 @@ class GraphPanel(wx.Panel):
         self.ax3 = self.fig.add_subplot(self.gs[2]) # Current
         self.ax1.set_ylabel('Ve (V)', fontsize=8)
         self.ax2.set_ylabel('P (Pa)', fontsize=8)
-        self.ax3.set_ylabel('Ig, Ic (x10 nA)', fontsize=8)
+        self.ax3.set_ylabel('Ig, Ic (V)', fontsize=8)
         self.ax3.set_xlabel('Time (s)', fontsize=8)
 
         # self.ax1.set_title('Ve', size=12)
