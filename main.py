@@ -105,7 +105,7 @@ class ConfigPanel(wx.Panel):
             self.datafilepath = os.path.join(self.dirName, self.fileName)
         with open(self.datafilepath, 'w') as f:
             f.write('#'+self.txt_cmt.GetValue()+'\n')
-            f.write('#date\ttime(s)\tVe(kV)\tIg(V)\tIc(V)\tP(Pa)\tIV_No\n')
+            f.write('#date\ttime(s)\tVe(V)\tIg(V)\tIc(V)\tP(Pa)\tIV_No\n')
 
     def open_cfg(self, event):
         dialog = ConfigDialog(self, self.cfg_param)
@@ -272,7 +272,7 @@ class SequenceSetting(wx.Frame):
         btn_load = wx.Button(self, wx.ID_ANY, "Load")
         btn_load.Bind(wx.EVT_BUTTON, self.button_load_click)
         btn_save = wx.Button(self, wx.ID_ANY, "Save")
-        # btn_save.Bind(wx.EVT_BUTTON, self.button_save_click)
+        btn_save.Bind(wx.EVT_BUTTON, self.button_save_click)
         btn_apply = wx.Button(self, wx.ID_ANY, "Apply")
         btn_apply.Bind(wx.EVT_BUTTON, self.button_apply_click)
         hbox_btn = wx.BoxSizer(wx.HORIZONTAL)
@@ -609,16 +609,16 @@ class TopForm(wx.Frame):
     def __init__(self):
         # wx.Frame.__init__(self, None, wx.ID_ANY, "Tutorial")
         super().__init__(None, wx.ID_ANY, "ILISlife", size=(800,600))
-        mgp = MyGraphPanel(self)
-        cfp = ConfigPanel(self)
-        stb = self.CreateStatusBar()
-        stb.SetStatusText( "statusbar text" )
+        self.mgp = MyGraphPanel(self)
+        self.cfp = ConfigPanel(self)
+        self.stb = self.CreateStatusBar()
+        self.stb.SetStatusText( "statusbar text" )
         pub.subscribe(self.var_listen, "varListner")
 
         layout = wx.BoxSizer(wx.HORIZONTAL)
-        layout.Add(cfp, proportion=0.1,flag=wx.GROW | wx.ALL, border=10)
+        layout.Add(self.cfp, proportion=0.1,flag=wx.GROW | wx.ALL, border=10)
         layout.Add(wx.StaticLine(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_VERTICAL), flag=wx.GROW)
-        layout.Add(mgp, proportion=3, flag=wx.EXPAND | wx.RIGHT)
+        layout.Add(self.mgp, proportion=3, flag=wx.EXPAND | wx.RIGHT)
         self.SetSizer(layout)
 
     def format_info(self, d):
@@ -626,7 +626,7 @@ class TopForm(wx.Frame):
         var_list = [d['time_now'], d['seq_now'], d['Ve_status'], d['Ig_status'], d['Ic_status'], d['P_status']]
         lab_list = ['Time(s)', 'Seq.No','Ve','Ig','Ic','P']
         for i,v in enumerate(var_list):
-            fmt_txt.append(i+': '+str(v))
+            fmt_txt += i+': '+str(v) + ' '
         return fmt_txt
 
     def var_listen(self, message):

@@ -9,7 +9,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from Crypto.PublicKey import RSA
 from Crypto import Random
-import os
+import os,sys
 import json
 
 #### decrypt password with rsa
@@ -94,21 +94,28 @@ if __name__ == '__main__':
     passwd_rsa_file = email_param['passwd_rsa_file']
 
     from_addr = email_param['from_addr']
-    to_addr = ",".join(email_param['to_addrs'])
-    # to_addr = 'testaddr@hoge.com'
+    # to_addr = ",".join(email_param['to_addrs'])
+    to_addr = sys.argv[0] ## to_email address
+
     subject = "Email test with python"
-    body_text = "hogehogehage ageage"
+    body_text = ""
     ## for csv
     # mime={'type':'text', 'subtype':'comma-separated-values'}
     # attach_file={'name':'test.csv', 'path':'/tmp/test.csv'}
+
     ## for pdf
-    mime={'type':'application', 'subtype':'pdf'}
-    attach_file={'name':'160725-171642.pdf', 'path':'./160725-171642.pdf'}
+    # mime={'type':'application', 'subtype':'pdf'}
+    # attach_file={'name':'160725-171642.pdf', 'path':'./160725-171642.pdf'}
+
+    ## for text
+    mime={'type':'application', 'subtype':'txt'}
+    attach_file={'name':sys.arg[1], 'path':'./'+sys.arg[1]}
+
 
     msg = create_message(from_addr, to_addr, subject, body_text, mime, attach_file)
-    if email_param['cc_addrs']:
-        msg['Cc'] = ",".join(cc_addrs)
-    if email_param['bcc_addrs']:
-        msg['Bcc'] = ",".join(bcc_addrs)
+    # if email_param['cc_addrs']:
+    #     msg['Cc'] = ",".join(cc_addrs)
+    # if email_param['bcc_addrs']:
+    #     msg['Bcc'] = ",".join(bcc_addrs)
 
     send_gmail(from_addr, id_rsa_file, passwd_rsa_file, msg)

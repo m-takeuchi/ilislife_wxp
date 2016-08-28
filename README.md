@@ -21,6 +21,7 @@ sudo pip3 install importlib
 sudo pip3 install matploblib
 sudo pip3 install pyserial
 sudo pip3 install APScheduler
+sudo pip3 install tables
 ```
 
 ## On macOS
@@ -34,6 +35,8 @@ pip install importlib
 pip install matploblib
 pip install pyserial
 pip install APScheduler
+brew install hdf5
+pip install tables
 ```
 
 # How to run
