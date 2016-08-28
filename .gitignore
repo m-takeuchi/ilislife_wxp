@@ -3,6 +3,7 @@ __pycache__
 local_test
 old
 data
+data_linux
 pass.rsa
 .ipynb*
 
