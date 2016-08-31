@@ -7,6 +7,8 @@ import wx
 import mygraph
 import numpy as np
 import datetime as dtm
+# import ilis
+import ilis_dummy as ilis
 
 from wx.lib.pubsub import pub
 
@@ -140,8 +142,6 @@ class ConfigPanel(wx.Panel):
     def OnConnect(self, event):
         lbl = self.btn_cnt.GetLabel()
         if lbl == 'Connect':
-            ### Dinamically import ilis module
-            ilis = importlib.import_module('ilis')
             self.dev = ilis.Operation()
             self.dev.portGPIB = self.cfg_param['pgx_port']
             self.dev.VeAddr = int(self.cfg_param['VeAddr'])
@@ -365,6 +365,7 @@ class SeqList(wx.ListCtrl):
                          |wx.BORDER_SUNKEN)
 
         pub.subscribe(self.seq_listen, "seqListner")
+        pub.subscribe(self.var_listen, "varListner")
 
         # self.list = wx.ListCtrl(panel, -1, style = wx.LC_REPORT)
         self.InsertColumn(0, "#", wx.LIST_FORMAT_RIGHT)
@@ -387,6 +388,21 @@ class SeqList(wx.ListCtrl):
             self.InsertItem(i, str(i))
             self.SetItem(i, 1, str(v[0]))
             self.SetItem(i, 2, str(v[1]))
+
+    def get_seq(self, d):
+        self.seq_now = d['seq_now']
+
+    def var_listen(self, message):
+        self.get_seq(message)
+        HLTcolour = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT)
+        if self.seq_now == 0: ### First sequence
+            self.SetItemBackgroundColour(self.seq_now, col=HLTcolour)
+        elif self.seq_now == len(self.SEQ): ### After sequence
+            self.SetItemBackgroundColour(self.seq_now -1 , col='#FFFFFF')
+        else: ### on sequence
+            self.SetItemBackgroundColour(self.seq_now -1 , col='#FFFFFF')
+            self.SetItemBackgroundColour(self.seq_now, col=HLTcolour)
+        pass
 
 
 # class ConfigDialog(wx.Dialog):
@@ -634,8 +650,15 @@ class TopForm(wx.Frame):
         self.stb.SetStatusText(info_txt)
         pass
 
+class MyApp(wx.App):
+    def __init__(self):
+        wx.App.__init__(self,False) #//ココ
+
 
 if __name__ == "__main__":
-    app = wx.App()
+    # app = wx.App()
+    # app = wx.App(redirect=True)
+    # app = wx.App(redirect=True,filename="mylogfile.txt")
+    app = MyApp()
     frame = TopForm().Show()
     app.MainLoop()

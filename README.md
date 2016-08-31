@@ -30,7 +30,7 @@ Install with homebrew and pip.
 * If python3 is default :
 ```
 pip install --upgrade pip
-pip install --user --pre --trusted-host wxpython.org -f http://wxpython.org/Phoenix/snapshot-builds/ wxpython-phoenix
+pip install --pre --trusted-host wxpython.org -f http://wxpython.org/Phoenix/snapshot-builds/ wxpython-phoenix
 pip install importlib
 pip install matploblib
 pip install pyserial
