@@ -97,7 +97,6 @@ class Operation():
         self.P_status  = 'Disconnected'
 
         self.is_connected = False
-        self.is_active = False
         self.is_holdvolt = False
         self.is_changevolt = False
         self.is_sequence = False
@@ -272,7 +271,7 @@ class Operation():
     def OnSequence(self):
         """Dammy Callback for voltage sequence
         """
-        print(self.count)
+        # print(self.count)
         if self.seq_now <= len(self.seq) -1:
             self.volt_target = self.seq[self.seq_now][0]
         ### Insert I-V measurement
@@ -281,10 +280,11 @@ class Operation():
                 self.volt_now = 0
                 # self.Ve_obj.VoltZero()
                 print('Starting I-V No. ', self.count_iv)
-                self.job_iv = self.sched.add_job(self.IvMeasure, 'interval', seconds=self.dtiv, id='iv')
+                # self.job_iv = self.sched.add_job(self.IvMeasure, 'interval', seconds=self.dtiv, id='iv')
+                self.IvMeasure(self.volt_now)
                 # self.sched.start()
                 ####
-                print(self.sched.print_jobs())
+                # print(self.sched.print_jobs())
 
             else:
             ### Normal time-dependent measuremt
