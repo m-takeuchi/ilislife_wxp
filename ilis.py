@@ -192,60 +192,66 @@ class Operation():
         self.Ig_status = str(self.Ig_value)
         self.P_status  = "{0:1.2e}".format(self.P_value)
 
-    # def IvMeasure(self, targetvolt):
-    #     """Auto I-V measurement up to the current Ve value with dV/0.5*dt rate
-    #     """
-    #     # self.volt_last = round(self.Ve_obj.AskVolt()*1000)
-    #     # target = self.volt_last+self.dV
-    #     self.is_iv = True
-    #     target = int(targetvolt+self.dV)
-    #     step = int(self.dV)
-    #     self.is_changevolt = True
-    #     self.Ve_obj.VoltZero()
-    #     result = []
-    #     for i in range(0, target, step):
-    #         next_raw = '{0:.2f}'.format(float(i)/1000)
-    #         self.Ve_obj.Instruct('volt ' + str(next_raw))
-    #         time.sleep(self.dtiv)
-    #         self.volt_now = self.Ve_obj.AskVolt()*1000
-    #         self.AquireParam()
-    #         tmp = [self.Ve_value, self.Ig_value, self.Ic_value, self.P_value]
-    #         result.append(tmp)
-    #         print(tmp)
-    #     self.is_changevolt = False
-    #     self.is_iv = False
-    #     return result
-
-
-    def IvMeasure(self):
-        """Auto I-V measurement up to the current Ve value
+    def IvMeasure(self, targetvolt):
+        """Auto I-V measurement up to the current Ve value with dV/0.5*dt rate
         """
-        # self.volt_now = self.Ve_obj.AskVolt()*1000
-        print('volt_target is ', self.volt_target)
+        # self.volt_last = round(self.Ve_obj.AskVolt()*1000)
+        # target = self.volt_last+self.dV
+
         ### Pause self.sched until IvMeasure finished
         self.job_seq.pause()
 
-        self.AquireParam()
-        if self.volt_now == self.volt_target:
-            self.is_iv = False
-            self.job_iv.pause()
-            self.job_iv.remove()
-            self.count_iv += 1
-            print('End I-V')
-            ### Resume self.sched
-            self.job_seq.resume()
-            print('Resuming sequence' , time.ctime())
-            return False
-        elif self.volt_now < self.volt_target:
-            self.is_iv = True
-            self._IncrementVolt()#self.volt_target)#, *largs)
-            return True
-        else:
-            self.job_iv.pause()
-            self.job_iv.remove()
-            self.count_iv += 1
-            self.job_seq.resume()
-            return False
+        self.is_iv = True
+        target = int(targetvolt+self.dV)
+        step = int(self.dV)
+        self.is_changevolt = True
+        self.Ve_obj.VoltZero()
+        result = []
+        for i in range(0, target, step):
+            next_raw = '{0:.2f}'.format(float(i)/1000)
+            self.Ve_obj.Instruct('volt ' + str(next_raw))
+            time.sleep(self.dtiv)
+            self.volt_now = self.Ve_obj.AskVolt()*1000
+            self.AquireParam()
+            tmp = [self.Ve_value, self.Ig_value, self.Ic_value, self.P_value]
+            result.append(tmp)
+            print(tmp)
+        self.is_changevolt = False
+        self.is_iv = False
+        self.job_seq.resume()
+        print('Resuming sequence' , time.ctime())
+        return result
+
+
+    # def IvMeasure(self):
+    #     """Auto I-V measurement up to the current Ve value
+    #     """
+    #     # self.volt_now = self.Ve_obj.AskVolt()*1000
+    #     print('volt_target is ', self.volt_target)
+    #     ### Pause self.sched until IvMeasure finished
+    #     self.job_seq.pause()
+
+    #     self.AquireParam()
+    #     if self.volt_now == self.volt_target:
+    #         self.is_iv = False
+    #         self.job_iv.pause()
+    #         self.job_iv.remove()
+    #         self.count_iv += 1
+    #         print('End I-V')
+    #         ### Resume self.sched
+    #         self.job_seq.resume()
+    #         print('Resuming sequence' , time.ctime())
+    #         return False
+    #     elif self.volt_now < self.volt_target:
+    #         self.is_iv = True
+    #         self._IncrementVolt()#self.volt_target)#, *largs)
+    #         return True
+    #     else:
+    #         self.job_iv.pause()
+    #         self.job_iv.remove()
+    #         self.count_iv += 1
+    #         self.job_seq.resume()
+    #         return False
 
     def StartSequence(self):
         """Start voltage sequence
