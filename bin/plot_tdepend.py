@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import datetime, time
 # from scipy.signal import savgol_filter
-
+import h5py
 
 # %matplotlib inline
 # datafile = 'data_linux/160821-154124.dat'
-Rprotect = 10e6 #ohm
+# Rprotect = 10e6 #ohm
 Rs = 100e3 #ohm
 
 def Ve_correct(Ve, Ig, Rprotect):
@@ -46,7 +46,7 @@ def save_dfFile(df, filename):
     df.to_csv(filename, sep='\t')
 
 
-def generate_plot(datafile, oldtype=False, comment=None, pdf=False, exc_iv=False):
+def generate_plot(datafile, oldtype=False, comment=None, pdf=False, exc_iv=False, Rprotect=10e6):
 ###
     # base = datafile.rsplit('.dat')[0]
     # pdffile = base+'.pdf'
@@ -76,17 +76,16 @@ def generate_plot(datafile, oldtype=False, comment=None, pdf=False, exc_iv=False
             ### Read first line as comment
             with open(datafile, 'r') as f:
                 cmt = f.readline()
+
         else:
             cmt = None
 
     elif (ext == 'hdf5') | (ext == 'h5'):
-        # with h5py.File(datafile, 'r') as hf:
-        #     # print(hf.keys())
-        #     cmt = hf.get('comment')
-        #     print(cmt)
         data = pd.read_hdf(datafile, key='data')
-        cmt = None
-
+        with h5py.File(datafile, 'r') as hf:
+            # print(hf.keys())
+            cmt = hf.get('comment').value.decode('utf-8')
+            # print(cmt.value.decode('utf-8'))
 
     ### Omit Abnormal data
     ignore1 = data['Ig'].abs() > 5e+0
@@ -110,7 +109,7 @@ def generate_plot(datafile, oldtype=False, comment=None, pdf=False, exc_iv=False
     time_h = data['time']/3600
 
     if cmt:
-        ax1.set_title(datafile+' '+cmt)
+        ax1.set_title(datafile+'\n'+cmt, fontsize=10)
     else:
         ax1.set_title(datafile)
     ax1.set_ylabel('Ve (kV)')
@@ -122,6 +121,7 @@ def generate_plot(datafile, oldtype=False, comment=None, pdf=False, exc_iv=False
     axp.grid('on')
     axp.set_xticklabels('')
     axp.set_yscale('log')
+
     ax2.set_ylabel('Ig, Ic (nA)')
     ax2.set_xlabel('Time (h)')
     # ax2.set_ylim(ymax=0, top=0)
@@ -135,6 +135,7 @@ def generate_plot(datafile, oldtype=False, comment=None, pdf=False, exc_iv=False
     I = (data['Ic']+data['Ig'])/Rs
     tot_fluence = I.sum()
 
+    ax2.set_title('Total '+ "{0:.2e}".format(tot_fluence) + ' (C)')
     ax2.plot(time_h, I*1e9, 'r-', label='Ig+Ic')
     ax2.legend(loc='best')
 
@@ -154,15 +155,16 @@ def generate_plot(datafile, oldtype=False, comment=None, pdf=False, exc_iv=False
 
 __doc__ = """{f}
 Usage:
-    {f} [-o | --oldtype] [-c | --comment] [-p | --pdf] [-e | --exclude-iv] DATFILE
+    {f} [-o | --oldtype] [-c | --comment] [-p | --pdf] [-e | --exclude-iv] [-r | --protect-resistor=<num>] DATFILE
     {f} -h | --help
 
 Options:
-    -h --help                Show this screen and exit.
-    -o --oldtype             Spesify dat file is formated with old type
-    -c --comment             Read comment from dat file and label on graph
-    -p --pdf                 Export graph to pdf file
-    -e --exclude-iv          Exclude I-V measurement step
+    -h --help                      Show this screen and exit.
+    -o --oldtype                   Spesify dat file is formated with old type
+    -c --comment                   Read comment from dat file and label on graph
+    -p --pdf                       Export graph to pdf file
+    -r --protect-resistor=<num>    Set Rprotect in float [ohm]
+    -e --exclude-iv                Exclude I-V measurement step
 """.format(f=__file__)
 
 def main():
@@ -174,7 +176,8 @@ def main():
     datafile = args["DATFILE"]
     topdf = args['--pdf']
     exc_iv = args['--exclude-iv']
-    tf = generate_plot(datafile, oldtype, comment, topdf, exc_iv)
+    Rprotect = 10e6 if args["--protect-resistor"] == [] else int(args["--protect-resistor"][0])
+    tf = generate_plot(datafile, oldtype, comment, topdf, exc_iv, Rprotect)
     print("Total charge (C): {0:.3e}".format(tf))
 
 
