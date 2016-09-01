@@ -22,8 +22,7 @@ class Operation():
     is_iv = False # boolen for iv measurement is active or not
     count = 0 # Counter for sequence interval
     count_iv = 1 # Counter for number of iv measuremnt
-    # period = 3600 # Specific time period for i-v measurment to interupt
-    period = 60 # Specific time period for i-v measurment to interupt
+    period = 3600 # Specific time period for i-v measurment to interupt
     time_now = 0 # timer
     time_start = 0 # t0
     volt_now = 0.0 # current voltage setting

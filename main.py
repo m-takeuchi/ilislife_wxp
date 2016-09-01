@@ -13,6 +13,20 @@ import ilis
 from wx.lib.pubsub import pub
 
 
+# import gc
+# from collections import defaultdict
+# def output_memory():
+#     d = defaultdict(int)
+#     for o in gc.get_objects():
+#         name = type(o).__name__
+#         d[name] += 1
+
+#     items = d.items()
+#     items.sort(key=lambda x:x[1])
+#     for key, value in items:
+#         print(key, value)
+
+
 
 class ConfigPanel(wx.Panel):
     cfg_param = {} ### config parameters to be used for another classes
@@ -235,6 +249,9 @@ class ConfigPanel(wx.Panel):
         wx.CallAfter(pub.sendMessage, "varListner", message=self.var_param)
         # print([self.Ve_value, self.Ig_value, self.Ic_value, self.P_value])
 
+        #####output_memory()
+
+        
     def prepare_ivdatafile(self):
         self.ivfileName = self.fileName.rsplit('.dat')[0]+'_iv'+'{0:03d}'.format(self.dev.count_iv)+'.dat'
         self.ivdatafilepath = os.path.join(self.dirName, self.ivfileName)
