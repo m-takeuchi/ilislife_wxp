@@ -7,11 +7,16 @@ import wx
 import mygraph
 import numpy as np
 import datetime as dtm
-import ilis
-# import ilis_dummy as ilis
+# import ilis
+import ilis_dummy as ilis
 
 from wx.lib.pubsub import pub
 
+import types
+# from pympler import muppy
+# from pympler import summary
+# from pympler import tracker
+# tr = tracker.SummaryTracker()
 
 # import gc
 # from collections import defaultdict
@@ -238,8 +243,8 @@ class ConfigPanel(wx.Panel):
             self.var_arr = [round(self.dev.time_now), self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value, self.dev.count_iv]
         else:
             self.var_arr = [round(self.dev.time_now), self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value, 0]
-        print('count_iv = ', self.var_arr[-1])
-        
+        # print('count_iv = ', self.var_arr[-1])
+
         ### Normal data append for time-dependent measuremt
         self.append_to_file()
         ### I-V data save
@@ -250,8 +255,12 @@ class ConfigPanel(wx.Panel):
         # print([self.Ve_value, self.Ig_value, self.Ic_value, self.P_value])
 
         #####output_memory()
+        # all_objects = muppy.get_objects()
+        # sum1 = summary.summarize(all_objects)
+        # summary.print_(sum1)
+        # tr.print_diff()
+        # print(len(all_objects))
 
-        
     def prepare_ivdatafile(self):
         self.ivfileName = self.fileName.rsplit('.dat')[0]+'_iv'+'{0:03d}'.format(self.dev.count_iv)+'.dat'
         self.ivdatafilepath = os.path.join(self.dirName, self.ivfileName)
@@ -274,10 +283,10 @@ class ConfigPanel(wx.Panel):
             fh.write(str(self.get_ctime()) + datastr + '\n')
 
     def get_ctime(self):
-        t = dtm.datetime.now()
-        point = (t.microsecond - t.microsecond%10000)/10000
-        app_time = "{0:%y%m%d-%H:%M:%S}.{1:.0f}".format(t, point)
-        return app_time
+        self.t = dtm.datetime.now()
+        self.point = (self.t.microsecond - self.t.microsecond%10000)/10000
+        self.app_time = "{0:%y%m%d-%H:%M:%S}.{1:.0f}".format(self.t, self.point)
+        return self.app_time
 
 class SequenceSetting(wx.Frame):
     seq_str = ""
@@ -413,14 +422,14 @@ class SeqList(wx.ListCtrl):
 
     def var_listen(self, message):
         self.get_seq(message)
-        HLTcolour = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT)
+        self.HLTcolour = wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHT)
         if self.seq_now == 0: ### First sequence
-            self.SetItemBackgroundColour(self.seq_now, col=HLTcolour)
+            self.SetItemBackgroundColour(self.seq_now, col=self.HLTcolour)
         elif self.seq_now == len(self.SEQ): ### After sequence
             self.SetItemBackgroundColour(self.seq_now -1 , col='#FFFFFF')
         else: ### on sequence
             self.SetItemBackgroundColour(self.seq_now -1 , col='#FFFFFF')
-            self.SetItemBackgroundColour(self.seq_now, col=HLTcolour)
+            self.SetItemBackgroundColour(self.seq_now, col=self.HLTcolour)
         pass
 
 
@@ -632,10 +641,18 @@ class MyGraphPanel(mygraph.GraphPanel):
         """
         # print(message)
         self.dt = message['dt']
-        data = np.array([message['Ve_value'], message['Ig_value'], message['Ic_value'], message['P_value']])
-        # print(data)
-        self.val_arr[0,1:] = data
+        self.val_arr[0,1:] = np.array([message['Ve_value'], message['Ig_value'], message['Ic_value'], message['P_value']])
         # print(self.val_arr[0:1,:])
+
+        self.val_arr = np.roll(self.val_arr, 1, axis=0) # Roll 1 element forward
+        self.t += self.dt
+        # self.val_arr[0,0] = self.t
+        self.val_arr[:,0] = np.arange(0, -self.BUFFSIZE*self.dt, -self.dt)
+
+        ### Put values by self.datagen.next
+        # self.val_arr[0,1:] = [self.datagen.read() for i in range(self.COLS-1)]
+
+        self.draw_plot()
 
 
 class TopForm(wx.Frame):
@@ -647,7 +664,7 @@ class TopForm(wx.Frame):
         self.mgp = MyGraphPanel(self)
         self.cfp = ConfigPanel(self)
         self.stb = self.CreateStatusBar()
-        self.stb.SetStatusText( "statusbar text" )
+        self.stb.SetStatusText( "Welcome to ILISlife" )
         pub.subscribe(self.var_listen, "varListner")
 
         layout = wx.BoxSizer(wx.HORIZONTAL)
@@ -657,16 +674,16 @@ class TopForm(wx.Frame):
         self.SetSizer(layout)
 
     def format_info(self, d):
-        fmt_txt = ""
-        var_list = [d['time_now'], d['seq_now'], d['Ve_status'], d['Ig_status'], d['Ic_status'], d['P_status']]
-        lab_list = ['Time(s)', 'Seq.No','Ve','Ig','Ic','P']
-        for i,v in enumerate(var_list):
-            fmt_txt += lab_list[i]+': '+str(v) + ' '
-        return fmt_txt
+        self.fmt_txt = ""
+        self.var_list = [d['time_now'], d['seq_now'], d['Ve_status'], d['Ig_status'], d['Ic_status'], d['P_status']]
+        self.lab_list = ['Time(s)', 'Seq.No','Ve','Ig','Ic','P']
+        for i,v in enumerate(self.var_list):
+            self.fmt_txt += self.lab_list[i]+': '+str(v) + ' '
+        return self.fmt_txt
 
     def var_listen(self, message):
-        info_txt = self.format_info(message)
-        self.stb.SetStatusText(info_txt)
+        self.info_txt = self.format_info(message)
+        self.stb.SetStatusText(self.info_txt)
         pass
 
 class MyApp(wx.App):

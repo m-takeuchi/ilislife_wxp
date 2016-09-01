@@ -131,7 +131,7 @@ class GraphPanel(wx.Panel):
         self.init_plot()
         self.canvas = FigCanvas(self, wx.ID_ANY, self.fig)
 
-        self.xmin_control = BoundControlBox(self, wx.ID_ANY, "X min", -60)
+        self.xmin_control = BoundControlBox(self, wx.ID_ANY, "X min", -600)
         self.xmax_control = BoundControlBox(self, wx.ID_ANY, "X max", 0)
         self.ymin_control = BoundControlBox(self, wx.ID_ANY, "Y min", 0)
         self.ymax_control = BoundControlBox(self, wx.ID_ANY, "Y max", 100)
@@ -175,9 +175,9 @@ class GraphPanel(wx.Panel):
         self.vbox.Fit(self)
 
         ### Prepare wx.Timer
-        self.redraw_timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)
-        self.redraw_timer.Start(self.dtms)
+        # self.redraw_timer = wx.Timer(self)
+        # self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)
+        # self.redraw_timer.Start(self.dtms)
 
 
     def init_plot(self):
@@ -286,7 +286,7 @@ class GraphPanel(wx.Panel):
             self.plot_data[col].set_ydata(self.val_arr[:, col+1])
 
         self.canvas.draw()
-        self.canvas.flush_events() # Add to avoid memory leak
+        # self.canvas.flush_events() # Add to avoid memory leak
         self.canvas.Refresh()   # Add to avoid memory leak
 
     def on_pause_button(self, event):
@@ -302,17 +302,17 @@ class GraphPanel(wx.Panel):
     def on_cb_xlab(self, event):
         self.draw_plot()
 
-    def on_redraw_timer(self, event):
-        if not self.paused:
-            self.val_arr = np.roll(self.val_arr, 1, axis=0) # Roll 1 element forward
-            self.t += self.dt
-            # self.val_arr[0,0] = self.t
-            self.val_arr[:,0] = np.arange(0, -self.BUFFSIZE*self.dt, -self.dt)
-
-            ### Put values by self.datagen.next
-            # self.val_arr[0,1:] = [self.datagen.read() for i in range(self.COLS-1)]
-
-            self.draw_plot()
+    # def on_redraw_timer(self, event):
+    #     if not self.paused:
+    #         self.val_arr = np.roll(self.val_arr, 1, axis=0) # Roll 1 element forward
+    #         self.t += self.dt
+    #         # self.val_arr[0,0] = self.t
+    #         self.val_arr[:,0] = np.arange(0, -self.BUFFSIZE*self.dt, -self.dt)
+    #
+    #         ### Put values by self.datagen.next
+    #         # self.val_arr[0,1:] = [self.datagen.read() for i in range(self.COLS-1)]
+    #
+    #         self.draw_plot()
 
 
     # def flash_status_message(self, msg, flash_len_ms=1500):
