@@ -286,6 +286,8 @@ class GraphPanel(wx.Panel):
             self.plot_data[col].set_ydata(self.val_arr[:, col+1])
 
         self.canvas.draw()
+        self.canvas.flush_events()
+        self.canvas.Refresh()   # Add to avoid memory leak
 
     def on_pause_button(self, event):
         self.paused = not self.paused

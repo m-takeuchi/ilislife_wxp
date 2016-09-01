@@ -224,6 +224,8 @@ class ConfigPanel(wx.Panel):
             self.var_arr = [round(self.dev.time_now), self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value, self.dev.count_iv]
         else:
             self.var_arr = [round(self.dev.time_now), self.dev.Ve_value, self.dev.Ig_value, self.dev.Ic_value, self.dev.P_value, 0]
+        print('count_iv = ', self.var_arr[-1])
+        
         ### Normal data append for time-dependent measuremt
         self.append_to_file()
         ### I-V data save
