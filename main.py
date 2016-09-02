@@ -7,7 +7,7 @@ import wx
 import mygraph
 import numpy as np
 import datetime as dtm
-# import ilis
+#import ilis
 import ilis_dummy as ilis
 
 from wx.lib.pubsub import pub
@@ -628,31 +628,30 @@ class EmailDetail(wx.Dialog):
         self.SetSizer(layout)
 
 
-# import mygraph
-# class MyGraphPanel(wx.Panel):
-class MyGraphPanel(mygraph.GraphPanel):
-    def __init__(self, parent):
-        super(MyGraphPanel, self).__init__(parent, wx.ID_ANY)
-        # self.SetBackgroundColour("#FF0000")
-        pub.subscribe(self.var_listen, "varListner")
 
-    def var_listen(self, message):
-        """ pub listner to get var list from SequenceSetting class
-        """
-        # print(message)
-        self.dt = message['dt']
-        self.val_arr[0,1:] = np.array([message['Ve_value'], message['Ig_value'], message['Ic_value'], message['P_value']])
-        # print(self.val_arr[0:1,:])
+# class MyGraphPanel(mygraph.GraphPanel):
+#     def __init__(self, parent):
+#         super(MyGraphPanel, self).__init__(parent, wx.ID_ANY)
+#         # self.SetBackgroundColour("#FF0000")
+#         pub.subscribe(self.var_listen, "varListner")
 
-        self.val_arr = np.roll(self.val_arr, 1, axis=0) # Roll 1 element forward
-        self.t += self.dt
-        # self.val_arr[0,0] = self.t
-        self.val_arr[:,0] = np.arange(0, -self.BUFFSIZE*self.dt, -self.dt)
+#     def var_listen(self, message):
+#         """ pub listner to get var list from SequenceSetting class
+#         """
+#         # print(message)
+#         self.dt = message['dt']
+#         self.val_arr[0,1:] = np.array([message['Ve_value'], message['Ig_value'], message['Ic_value'], message['P_value']])
+#         # print(self.val_arr[0:1,:])
 
-        ### Put values by self.datagen.next
-        # self.val_arr[0,1:] = [self.datagen.read() for i in range(self.COLS-1)]
+#         self.val_arr = np.roll(self.val_arr, 1, axis=0) # Roll 1 element forward
+#         self.t += self.dt
+#         # self.val_arr[0,0] = self.t
+#         self.val_arr[:,0] = np.arange(0, -self.BUFFSIZE*self.dt, -self.dt)
 
-        self.draw_plot()
+#         ### Put values by self.datagen.next
+#         # self.val_arr[0,1:] = [self.datagen.read() for i in range(self.COLS-1)]
+
+#         self.draw_plot()
 
 
 class TopForm(wx.Frame):
@@ -661,7 +660,7 @@ class TopForm(wx.Frame):
     def __init__(self):
         # wx.Frame.__init__(self, None, wx.ID_ANY, "Tutorial")
         super().__init__(None, wx.ID_ANY, "ILISlife", size=(800,600))
-        self.mgp = MyGraphPanel(self)
+        # self.mgp = MyGraphPanel(self)
         self.cfp = ConfigPanel(self)
         self.stb = self.CreateStatusBar()
         self.stb.SetStatusText( "Welcome to ILISlife" )
@@ -670,7 +669,7 @@ class TopForm(wx.Frame):
         layout = wx.BoxSizer(wx.HORIZONTAL)
         layout.Add(self.cfp, proportion=0.1,flag=wx.GROW | wx.ALL, border=10)
         layout.Add(wx.StaticLine(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_VERTICAL), flag=wx.GROW)
-        layout.Add(self.mgp, proportion=3, flag=wx.EXPAND | wx.RIGHT)
+        # layout.Add(self.mgp, proportion=3, flag=wx.EXPAND | wx.RIGHT)
         self.SetSizer(layout)
 
     def format_info(self, d):
