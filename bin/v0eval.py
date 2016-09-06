@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import datetime, time
 from scipy.signal import savgol_filter
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, Akima1DInterpolator, PchipInterpolator
 import h5py
 
 # %matplotlib inline
@@ -98,22 +98,79 @@ def V0estimate(DataFrame, IVno=1, NoiseLevel = 2e-5, window=0):
     return df, V0
 
 
-def V0batch(DataFrame, IVno=1, NoiseLevel = 2e-5, window=0):
+def V0gradient(DataFrame, IVno=1, NoiseLevel = 1e-4, window=0):
+    i=IVno
+    df = DataFrame[DataFrame['IVno']== i ][['Ve','Ig','Ic']].drop_duplicates()
+    V = Ve_correct(df['Ve'], df['Ig']/Rs, Rprotect)
+    df['V'] = V
+    df['I_raw'] = np.abs(df['Ig']+df['Ic'])
+    if not window == 0:
+        df['I'] = savgol_filter(np.abs(df['Ig']+df['Ic']), window, 1)
+    else:
+        df['I'] = np.abs(df['Ig']+df['Ic'])
+    f = interp1d(df['V'], df['I'], kind='linear') ### estimate function of interpolation with linear
+    xnew = np.linspace(df['V'].min(), df['V'].max(), num=1001)
+    df_new = np.c_[xnew, f(xnew)]
+    ygrad1 = np.gradient(df_new)[0]
+    xygrad1 = np.c_[xnew, ygrad1[:,1]]
+    ygrad2 = np.gradient(xygrad1)[0]
+    xygrad2 = np.c_[xnew, ygrad2[:,1]]
+
+    xygrad1 = xygrad1[xygrad1[:,0]>=1000]
+    xygrad2 = xygrad2[xygrad2[:,0]>=1000]
+
+    df = df[df['V'] > 0 ][['V','I', 'I_raw']].reset_index(drop = True)[5:]#.sort_index(ascending=False)
+    # print( np.c_[df['V'].values, ygrad1[:,1]] )
+
+    # V0 = df_new[ (df_new[:,1] >= NoiseLevel) & (df_new[:,0] >= 1000) & (ygrad1[:,1] > 0) ][0,0]
+    h = xygrad1[(xygrad1[:,1]>0) & (xygrad2[:,1]>0), 0]
+    V0mean = h.mean()
+    wgh = np.r_[h[h < V0mean], h[h>=V0mean]*0]
+    hist, bin_edges = np.histogram(h, weights=wgh, bins=20, density=True)
+    j = np.argmax(hist)
+    Vl = bin_edges[j]
+    V0 = df_new[(df_new[:,1] >= NoiseLevel) & (df_new[:,0] >= Vl)][0,0]
+    I0 = df_new[(df_new[:,1] >= NoiseLevel) & (df_new[:,0] >= Vl)][0,1]
+    return df, df_new, V0, I0, xygrad1, xygrad2
+
+
+def V0batch(DataFrame, IVno=1, NoiseLevel = 1e-4, window=0):
     if IVno == 0:
         IVno = DataFrame['IVno'].max()
         output = []
         for i in range(1,IVno+1):
-            df, V0 = V0estimate(DataFrame, i, NoiseLevel, window)
-            print("{0:d}\t{1:f}".format(i,V0))
-            output.append([i, V0])
+            # df, V0 = V0estimate(DataFrame, i, NoiseLevel, window)
+            df, df_new, V0, I0, xygrad1, xygrad2 = V0gradient(DataFrame, i, NoiseLevel, window)
+            print("{0:d}\t{1:f}\t{2:.2e}".format(i,V0,I0))
+            output.append([i, V0, I0])
         return output
     else:
         i=IVno
-        df, V0 = V0estimate(DataFrame, i, NoiseLevel, window)
-        print("{0:d}\t{1:f}".format(i,V0))
+        # df, V0 = V0estimate(DataFrame, i, NoiseLevel, window)
+        df, df_new, V0, I0, xygrad1, xygrad2 = V0gradient(DataFrame, i, NoiseLevel, window)
+        # print("{0:d}\t{1:f}".format(i,V0))
+        print("{0:d}\t{1:f}\t{2:.2e}".format(i,V0,I0))
         fig = plt.figure()
+        # plt.plot(df['V'], df['I_raw']/df['I_raw'].max(), 'b-')
         plt.plot(df['V'], df['I_raw'], 'b-')
-        plt.plot(df['V'], df['I'], 'r-')
+        # plt.plot(df_new[:,0], df_new[:,1]/df_new[:,1].max(), 'r-')
+        plt.plot(df_new[:,0], df_new[:,1], 'r-')
+
+        plt.vlines(V0,ymin=0,ymax=df_new[:,1].max(), linestyles='dashed')
+
+
+        # plt.plot(xygrad1[:,0], xygrad1[:,1]/xygrad1[:,1].max(), 'g-')
+        # plt.plot(xygrad2[:,0], xygrad2[:,1]/xygrad2[:,1].max(), 'm-')
+        ycs = xygrad1.cumsum(0)[:,1]
+        # plt.plot(xygrad1[:,0], ycs/ycs.max(),'c-')
+        plt.plot(xygrad1[:,0], ycs,'c-')
+        h = xygrad1[(xygrad1[:,1]>0) & (xygrad2[:,1]>0), 0]
+        hist, bin_edges = np.histogram(h, bins=10, density=True)
+        # print(h.mean())
+        # print(bin_edges)
+
+        plt.hist(h, normed=True, bins=10, alpha=0.3)
+        # plt.yscale('Log')
         plt.show(block=False)
         # plt.draw()
         # plt.pause(1)
@@ -152,8 +209,37 @@ def main():
     # print("elapsed_time:{0}".format(elapsed_time) + "[sec]")
 
     # print(data)
-    print(cmt)
-    V0batch(data, IVno, noise, window)
+    # print(cmt)
+    # print(args)
+
+    output = V0batch(data, IVno, noise, window)
+    if IVno == 0:
+        ext = datafile.rsplit('.')[-1]
+        base = datafile.rsplit('.')[0]
+        outfile = base+'_v0.dat'
+        pdffile = base+'_v0.pdf'
+
+        head = "".join(cmt)+str(args)
+
+        a = np.array(output)
+        plt.title(cmt)
+        plt.xlabel('Time (h)')
+        plt.ylabel(r'V$_{th}$ (V)')
+        plt.plot(a[:,0], a[:,1], 'bo-')
+
+        plt.show(block=False)
+        plt.savefig(pdffile)
+        input("<Hit Enter To Close>")
+
+        # with open(outfile, 'w') as f:
+        #     f.write("".join(cmt))
+        #     f.writelines(output)
+        np.savetxt(outfile, a, fmt=['%i','%.2f','%.2e'], header=head, delimiter='\t')
+
+
+
+
+
     # print(V0out)
     # print("{0} is created.".format(IVno, V0Out))
     # print("Total charge (C): {0:.3e}".format(tf))
