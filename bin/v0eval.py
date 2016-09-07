@@ -218,6 +218,7 @@ def main():
         base = datafile.rsplit('.')[0]
         outfile = base+'_v0.dat'
         pdffile = base+'_v0.pdf'
+        svgfile = base+'_v0.svgz'
 
         head = "".join(cmt)+str(args)
 
@@ -229,6 +230,7 @@ def main():
 
         plt.show(block=False)
         plt.savefig(pdffile)
+        plt.savefig(svgfile)
         input("<Hit Enter To Close>")
 
         # with open(outfile, 'w') as f:

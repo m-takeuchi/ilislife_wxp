@@ -46,26 +46,17 @@ def save_dfFile(df, filename):
     df.to_csv(filename, sep='\t')
 
 
-def generate_plot(datafile, oldtype=False, comment=None, pdf=False, exc_iv=False, Rprotect=10e6):
-###
-    # base = datafile.rsplit('.dat')[0]
-    # pdffile = base+'.pdf'
-    #
-    # if oldtype == False:
-    #     data = pd.read_csv(datafile, delimiter='\t', comment='#',names=['date','time','Ve','Ig','Ic', 'P', 'IVno'],           dtype={'Ve':'float64','Ig':'float64','Ic':'float64','P':'float64'})
-    # else:
-    #     data = get_data_old(datafile)
-    #
-    # if comment == True:
-    #     ### Read first line as comment
-    #     with open(datafile, 'r') as f:
-    #         cmt = f.readline()
-    # else:
-    #     cmt = None
-###
+# def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=10e6, topdf=False, pdffile=None, tosvg=False, svgfile=None, ymax=0, ymin=0):
+def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=10e6, topdf=False, tosvg=False,ymax=0, ymin=0):
     ext = datafile.rsplit('.')[-1]
     base = datafile.rsplit('.')[0]
     pdffile = base+'.pdf'
+    svgfile = base+'.svgz'
+    # if pdffile == 'None':
+        # pdffile = base+'.pdf'
+        # print(pdffile)
+    # if svgfile == None:
+    #     svgfile = base+'.svg'
 
     if ext == 'dat':
         if oldtype == False:
@@ -124,7 +115,8 @@ def generate_plot(datafile, oldtype=False, comment=None, pdf=False, exc_iv=False
 
     ax2.set_ylabel('Ig, Ic (nA)')
     ax2.set_xlabel('Time (h)')
-    # ax2.set_ylim(ymax=0, top=0)
+    if (ymax !=0) or (ymin !=0):
+        ax2.set_ylim(ymax=ymax, ymin=ymin)
     ax2.ticklabel_format(style = 'sci', axis='y', useOffset=False)
     ax2.grid('on')
 
@@ -139,23 +131,31 @@ def generate_plot(datafile, oldtype=False, comment=None, pdf=False, exc_iv=False
     ax2.plot(time_h, I*1e9, 'r-', label='Ig+Ic')
     ax2.legend(loc='best')
 
-    if pdf == False:
+    if (topdf == False) and (tosvg == False):
+    # if topdf == False:
         plt.show(block=False)
 
         input("<Hit Enter To Close>")
         return tot_fluence
     else:
-        plt.savefig(pdffile)
-        print("{0} is created.".format(pdffile))
-        return tot_fluence
+        if topdf == True:
+            plt.savefig(pdffile)
+            print("{0} is created.".format(pdffile))
+        if tosvg == True:
+            plt.savefig(svgfile, format="svgz")
+            print("{0} is created.".format(svgfile))
+    return tot_fluence
 
     # return data
 
 # generate_plot(datafile, oldtype=True)
 
+
+    # {f} [-o | --oldtype] [-c | --comment] [-e | --exclude-iv]  [-r | --protect-resistor=<num>] [--ymax=<num>] [--ymin=<num>] [-p | --pdf=PDFFILE] [-s | --svg=SVGFILE] DATFILE
+    # -s --svg=SVGFILE               Export graph to svg file [default: None]
 __doc__ = """{f}
 Usage:
-    {f} [-o | --oldtype] [-c | --comment] [-p | --pdf] [-e | --exclude-iv] [-r | --protect-resistor=<num>] DATFILE
+    {f} [-o | --oldtype] [-c | --comment] [-e | --exclude-iv]   [-p | --pdf] [-s | --svg] [-r | --protect-resistor=<num>] [--ymax=<num>] [--ymin=<num>] DATFILE
     {f} -h | --help
 
 Options:
@@ -163,21 +163,42 @@ Options:
     -o --oldtype                   Spesify dat file is formated with old type
     -c --comment                   Read comment from dat file and label on graph
     -p --pdf                       Export graph to pdf file
+    -s --svg                       Export graph to svg file
     -r --protect-resistor=<num>    Set Rprotect in float [ohm]
     -e --exclude-iv                Exclude I-V measurement step
+    --ymax=<num>                   Set ymax
+    --ymin=<num>                   Set ymin
 """.format(f=__file__)
 
 def main():
     from docopt import docopt
     args = docopt(__doc__)
+
     # print(args["--oldtype"])
     oldtype = args["--oldtype"]
     comment = args["--comment"]
     datafile = args["DATFILE"]
+
+    # if args['--pdf']==[]:
+    #     topdf, pdfname = False, None
+    # else:
+    #     topdf, pdfname = True, args['--pdf']
     topdf = args['--pdf']
+    tosvg = args['--svg']
+    # print(args['--svg'])
+    # if args['--svg']==[]:
+    #     tosvg, svgname = False, None
+    # else:
+    #     tosvg, svgname = True, args['--svg'][0]
+
+
     exc_iv = args['--exclude-iv']
-    Rprotect = 10e6 if args["--protect-resistor"] == [] else int(args["--protect-resistor"][0])
-    tf = generate_plot(datafile, oldtype, comment, topdf, exc_iv, Rprotect)
+    Rprotect = 10e6 if args["--protect-resistor"] == [] else float(args["--protect-resistor"][0])
+    # print(args["--ymax"], args["--ymin"])
+    ymax = 0 if args["--ymax"] == None else float(args["--ymax"])
+    ymin = 0 if args["--ymin"] == None else float(args["--ymin"])
+    tf = generate_plot(datafile, oldtype, comment, exc_iv, Rprotect, topdf=topdf, tosvg=tosvg, ymax=ymax, ymin=ymin)
+    # tf = generate_plot(datafile, oldtype, comment, exc_iv, Rprotect, topdf=False, pdffile=None, tosvg=tosvg, svgfile=svgname, ymax=ymax, ymin=ymin)
     print("Total charge (C): {0:.3e}".format(tf))
 
 
