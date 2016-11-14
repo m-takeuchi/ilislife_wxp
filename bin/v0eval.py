@@ -171,10 +171,11 @@ def V0batch(DataFrame, IVno=1, NoiseLevel = 1e-4, window=0):
 
         plt.hist(h, normed=True, bins=10, alpha=0.3)
         # plt.yscale('Log')
-        plt.show(block=False)
-        # plt.draw()
-        # plt.pause(1)
-        input("<Hit Enter To Close>")
+        #plt.show(block=False)
+        plt.show()
+        #plt.draw()
+        #plt.pause(1)
+        #input("<Hit Enter To Close>")
         # plt.close(fig)
 
 

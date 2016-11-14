@@ -13,9 +13,11 @@ import h5py
 # datafile = 'data_linux/160821-154124.dat'
 # Rprotect = 10e6 #ohm
 Rs = 100e3 #ohm
+Rprotect = 10e+6 #ohm
 
-def Ve_correct(Ve, Ig, Rprotect):
-    Vext = Ve - Ig*Rprotect
+### Modified 161107
+def Ve_correct(Ve, Ig, Ic, Rprotect):
+    Vext = Ve - (np.abs(Ig + Ic))*Rprotect
     return Vext
 
 def mydate(str_date):
@@ -79,8 +81,8 @@ def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=
             # print(cmt.value.decode('utf-8'))
 
     ### Omit Abnormal data
-    ignore1 = data['Ig'].abs() > 5e+0
-    ignore2 = data['Ic'].abs() > 5e+0
+    ignore1 = data['Ig'].abs() > 10e+0
+    ignore2 = data['Ic'].abs() > 10e+0
 
     if exc_iv == False:
         data = data[(ignore1 | ignore2) == False]
@@ -120,7 +122,10 @@ def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=
     ax2.ticklabel_format(style = 'sci', axis='y', useOffset=False)
     ax2.grid('on')
 
+    Vext = Ve_correct(data['Ve'], data['Ig']/Rs, data['Ic']/Rs, Rprotect) ### Added 161107
+
     ax1.plot(time_h, data['Ve']/1e3, 'k-')
+    ax1.plot(time_h, Vext/1e3, 'r-') ### Added 161107
     axp.plot(time_h, data['P'], 'm-')
     ax2.plot(time_h, data['Ig']/Rs*1e9, 'g-', label='Ig')
     ax2.plot(time_h, data['Ic']/Rs*1e9, 'b-', label='Ic')

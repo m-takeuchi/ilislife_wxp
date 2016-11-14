@@ -7,8 +7,8 @@ import wx
 import mygraph
 import numpy as np
 import datetime as dtm
-#import ilis
-import ilis_dummy as ilis
+import ilis
+#import ilis_dummy as ilis
 
 from wx.lib.pubsub import pub
 
