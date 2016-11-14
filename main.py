@@ -659,7 +659,8 @@ class TopForm(wx.Frame):
     """
     def __init__(self):
         # wx.Frame.__init__(self, None, wx.ID_ANY, "Tutorial")
-        super().__init__(None, wx.ID_ANY, "ILISlife", size=(800,600))
+        # super().__init__(None, wx.ID_ANY, "ILISlife", size=(800,600))
+        super().__init__(None, wx.ID_ANY, "ILISlife", size=(200,600))
         # self.mgp = MyGraphPanel(self)
         self.cfp = ConfigPanel(self)
         self.stb = self.CreateStatusBar()
@@ -667,7 +668,8 @@ class TopForm(wx.Frame):
         pub.subscribe(self.var_listen, "varListner")
 
         layout = wx.BoxSizer(wx.HORIZONTAL)
-        layout.Add(self.cfp, proportion=0.1,flag=wx.GROW | wx.ALL, border=10)
+        # layout.Add(self.cfp, proportion=0.1,flag=wx.GROW | wx.ALL, border=10)
+        layout.Add(self.cfp, proportion=1,flag=wx.GROW | wx.ALL, border=10)        
         layout.Add(wx.StaticLine(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_VERTICAL), flag=wx.GROW)
         # layout.Add(self.mgp, proportion=3, flag=wx.EXPAND | wx.RIGHT)
         self.SetSizer(layout)
