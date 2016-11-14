@@ -23,6 +23,7 @@ class Operation():
     count = 0 # Counter for sequence interval
     count_iv = 1 # Counter for number of iv measuremnt
     period = 3600 # Specific time period for i-v measurment to interupt
+    # period = 300 # Specific time period for i-v measurment to interupt    
     time_now = 0 # timer
     time_start = 0 # t0
     volt_now = 0.0 # current voltage setting
@@ -69,11 +70,13 @@ class Operation():
         self.Ig_status = self.Ig_obj.Query('*IDN?')
         self.P_status = self.P_obj.GS() # Ask device
         self.Ic_obj.Mode()
-        self.Ic_obj.SampleRate(rate='medium')
+        # self.Ic_obj.SampleRate(rate='medium') # for dt < 2
+        self.Ic_obj.SampleRate(rate='slow') # for dt >= 2
         self.Ic_obj.ContTrig()
         self.Ic_obj.TrigInt(trig=True)
         self.Ig_obj.Mode()
-        self.Ig_obj.SampleRate(rate='medium')
+        # self.Ig_obj.SampleRate(rate='medium') # for dt < 2
+        self.Ig_obj.SampleRate(rate='slow') # for dt >= 2
         self.Ig_obj.ContTrig()
         self.Ig_obj.TrigInt(trig=True)
         self.P_obj.F1() # Turn filament on
@@ -275,7 +278,7 @@ class Operation():
         """
         self.sched.shutdown(wait=False)
         self.is_sequence =False
-
+        self.DisconnectDevice()
 
         
     def OnSequence(self):

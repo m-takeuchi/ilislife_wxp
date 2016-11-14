@@ -1,8 +1,6 @@
 ### Caution: Python is sensitive for indentation. Do use "Space" insted of "Tab".
 
 dV = 50 # (V) Minimum volgage step, which must be a dvisor for holding voltages.
-dt_meas = 1 #(s) measurement interval
-dt_op = 1 # (s) time per step for Ve change
 
 
 # List of [Voltage (V), holding time(s)]

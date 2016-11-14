@@ -6,5 +6,5 @@
     "pgx_port": "/dev/ttyUSB0",
     "pressure_abort": "2e-3",
     "pressure_postpone": "5e-4",
-    "sampling": "2"
+    "sampling": "5"
 }

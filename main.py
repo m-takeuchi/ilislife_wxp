@@ -209,7 +209,8 @@ class ConfigPanel(wx.Panel):
             if lbl == 'Start':
                 self.btn_sta.SetLabel('Stop')
                 self.SaveHeader() # Make datafile only with header
-                self.update_timer.Start(1000) #ms, Should is this self.dev.dt?
+                # self.update_timer.Start(1000) #ms, Should is this self.dev.dt?
+                self.update_timer.Start(self.dev.dt*1000) #ms, Should is this self.dev.dt?
                 self.dev.StartSequence()
                 return True
             elif lbl == 'Stop':

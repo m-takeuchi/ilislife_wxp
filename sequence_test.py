@@ -4,8 +4,8 @@ dV = 50 # (V) Minimum volgage step, which must be a dvisor for holding voltages.
 
 
 # List of [Voltage (V), holding time(s)]
-DT = 60 # (s) time per step for time-dependence measurement
+DT = 120 # (s) time per step for time-dependence measurement
 #SEQ = [[5000, 360000]]
 SEQ = [[1000, DT],\
-        [2000, DT],\
-        [3000, DT]]
+        [1250, DT],\
+        [1500, DT]]
