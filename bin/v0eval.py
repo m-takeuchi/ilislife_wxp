@@ -8,11 +8,12 @@ from matplotlib import gridspec
 import datetime, time
 from scipy.signal import savgol_filter
 from scipy.interpolate import interp1d, Akima1DInterpolator, PchipInterpolator
-import h5py
+
+import warnings
+warnings.filterwarnings(action="ignore", module="scipy", message="^internal gelsd")
 
 # %matplotlib inline
-# datafile = 'data_linux/160821-154124.dat'
-Rprotect = 10e6 #ohm
+# Rprotect = 10e6 #ohm
 Rs = 100e3 #ohm
 
 def Ve_correct(Ve, Ig, Rprotect):
@@ -58,6 +59,7 @@ def prepare_data(datafile, oldtype=False):
         else:
             data = get_data_old(datafile)
     elif (ext == 'hdf5') | (ext == 'h5'):
+        import h5py
         with h5py.File(datafile, 'r') as hf:
             # print(hf.keys())
             cmt = hf.get('comment').value.decode('utf-8')
@@ -74,44 +76,48 @@ def prepare_data(datafile, oldtype=False):
 # data['IVno'].max()
 # [i for i in range(1,22)]
 
-def V0estimate(DataFrame, IVno=1, NoiseLevel = 2e-5, window=0):
+# def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel = 2e-5, window=0): # 現在は使用していない
+# # def V0estimate(DataFrame, IVno=1, NoiseLevel = 2e-5, window=0):
+#     i=IVno
+#     df = DataFrame[DataFrame['IVno']== i ][['Ve','Ig','Ic']].drop_duplicates()
+#     V = Ve_correct(df['Ve'], df['Ig']/Rs, Rprotect)
+#     df['V'] = V
+#     df['I_raw'] = np.abs(df['Ig']+df['Ic'])
+#     if not window == 0:
+#         df['I'] = savgol_filter(np.abs(df['Ig']+df['Ic']), window, 1)
+#         f = interp1d(df['V'], df['I'], kind='linear') ### estimate function of interpolation with linear
+#         xnew = np.linspace(df['V'].min(), df['V'].max(), num=1001)
+#         df_new = np.c_[xnew, f(xnew)]
+#         # print(df_new)
+#     else:
+#         df['I'] = np.abs(df['Ig']+df['Ic'])
+#     df = df[df['V'] > 0 ][['V','I', 'I_raw']].reset_index(drop = True)[5:]#.sort_index(ascending=False)
+#     if not window == 0:
+#         V0 = df_new[ (df_new[:,1] >= NoiseLevel) & (df_new[:,0] >= 1000)][0,0]
+#     else:
+#         V0 = df[(df['I'] >= NoiseLevel) & (df['V'] >= 1000)].reset_index(drop = True).V[0]
+
+#     # print(V0)
+#     return df, V0
+
+
+def V0gradient(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
+# def V0gradient(DataFrame, IVno=1, NoiseLevel = 1e-4, window=0):
     i=IVno
     df = DataFrame[DataFrame['IVno']== i ][['Ve','Ig','Ic']].drop_duplicates()
-    V = Ve_correct(df['Ve'], df['Ig']/Rs, Rprotect)
+    # print(df)
+    V = Ve_correct(df['Ve'], df['Ig']/Rs, Rprotect) # 保護抵抗Rprotectでの電圧降下分をVeから差し引き補正
     df['V'] = V
-    df['I_raw'] = np.abs(df['Ig']+df['Ic'])
+    df['I_raw'] = np.abs(df['Ig']+df['Ic']) # 全電流の絶対値
     if not window == 0:
-        df['I'] = savgol_filter(np.abs(df['Ig']+df['Ic']), window, 1)
-        f = interp1d(df['V'], df['I'], kind='linear') ### estimate function of interpolation with linear
-        xnew = np.linspace(df['V'].min(), df['V'].max(), num=1001)
-        df_new = np.c_[xnew, f(xnew)]
-        # print(df_new)
+        df['I'] = savgol_filter(np.abs(df['Ig']+df['Ic']), window, 1) # window=0でない場合は全電流にsavgol_filterを適用しスムージング
     else:
-        df['I'] = np.abs(df['Ig']+df['Ic'])
-    df = df[df['V'] > 0 ][['V','I', 'I_raw']].reset_index(drop = True)[5:]#.sort_index(ascending=False)
-    if not window == 0:
-        V0 = df_new[ (df_new[:,1] >= NoiseLevel) & (df_new[:,0] >= 1000)][0,0]
-    else:
-        V0 = df[(df['I'] >= NoiseLevel) & (df['V'] >= 1000)].reset_index(drop = True).V[0]
-
-    # print(V0)
-    return df, V0
-
-
-def V0gradient(DataFrame, IVno=1, NoiseLevel = 1e-4, window=0):
-    i=IVno
-    df = DataFrame[DataFrame['IVno']== i ][['Ve','Ig','Ic']].drop_duplicates()
-    V = Ve_correct(df['Ve'], df['Ig']/Rs, Rprotect)
-    df['V'] = V
-    df['I_raw'] = np.abs(df['Ig']+df['Ic'])
-    if not window == 0:
-        df['I'] = savgol_filter(np.abs(df['Ig']+df['Ic']), window, 1)
-    else:
-        df['I'] = np.abs(df['Ig']+df['Ic'])
-    f = interp1d(df['V'], df['I'], kind='linear') ### estimate function of interpolation with linear
-    xnew = np.linspace(df['V'].min(), df['V'].max(), num=1001)
-    df_new = np.c_[xnew, f(xnew)]
-    ygrad1 = np.gradient(df_new)[0]
+        df['I'] = np.abs(df['Ig']+df['Ic']) # window=0の場合はスムージングをしない
+    # print(df['V'], df['I'])
+    f = interp1d(df['V'], df['I'], kind='linear') # 全電流に対する電圧の補間関数fを求める
+    xnew = np.linspace(df['V'].min(), df['V'].max(), num=1001) # 電圧の最小値から最大値までを1000分割したxnewを作る
+    df_new = np.c_[xnew, f(xnew)]                              # xnewとf(xnew)からなるアレイdf_new
+    ygrad1 = np.gradient(df_new)[0]                            # df_newの
     xygrad1 = np.c_[xnew, ygrad1[:,1]]
     ygrad2 = np.gradient(xygrad1)[0]
     xygrad2 = np.c_[xnew, ygrad2[:,1]]
@@ -134,20 +140,23 @@ def V0gradient(DataFrame, IVno=1, NoiseLevel = 1e-4, window=0):
     return df, df_new, V0, I0, xygrad1, xygrad2
 
 
-def V0batch(DataFrame, IVno=1, NoiseLevel = 1e-4, window=0):
-    if IVno == 0:
+def V0batch(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
+# def V0batch(DataFrame, IVno=1, NoiseLevel = 1e-4, window=0):
+    if IVno == 0:               # IV番号が0の場合は全てのIV測定についてのV0とI0を出力する
         IVno = DataFrame['IVno'].max()
         output = []
         for i in range(1,IVno+1):
             # df, V0 = V0estimate(DataFrame, i, NoiseLevel, window)
-            df, df_new, V0, I0, xygrad1, xygrad2 = V0gradient(DataFrame, i, NoiseLevel, window)
+            # df, df_new, V0, I0, xygrad1, xygrad2 = V0gradient(DataFrame, i, NoiseLevel, window)
+            df, df_new, V0, I0, xygrad1, xygrad2 = V0gradient(DataFrame, Rprotect, i, NoiseLevel, window)
             print("{0:d}\t{1:f}\t{2:.2e}".format(i,V0,I0))
             output.append([i, V0, I0])
         return output
-    else:
+    else:                       # IV番号が0でない場合は指定されたIVnoのV0を求め, グラフを出力する
         i=IVno
         # df, V0 = V0estimate(DataFrame, i, NoiseLevel, window)
-        df, df_new, V0, I0, xygrad1, xygrad2 = V0gradient(DataFrame, i, NoiseLevel, window)
+        # df, df_new, V0, I0, xygrad1, xygrad2 = V0gradient(DataFrame, i, NoiseLevel, window)
+        df, df_new, V0, I0, xygrad1, xygrad2 = V0gradient(DataFrame, Rprotect, i, NoiseLevel, window)
         # print("{0:d}\t{1:f}".format(i,V0))
         print("{0:d}\t{1:f}\t{2:.2e}".format(i,V0,I0))
         fig = plt.figure()
@@ -181,7 +190,7 @@ def V0batch(DataFrame, IVno=1, NoiseLevel = 1e-4, window=0):
 
 __doc__ = """{f}
 Usage:
-    {f} [ -o | --oldtype] [-i | --ivno=<num>] [-w | --window=<odd>] [-n | --noiselevel=<volt>] DATFILE
+    {f} [ -o | --oldtype] [-i | --ivno=<num>] [-w | --window=<odd>] [-n | --noiselevel=<volt>] [-r | --rprotect=<ohm>] DATFILE
     {f} -h | --help
 
 Options:
@@ -190,6 +199,7 @@ Options:
     -i --ivno=<num>          Specify no. of i-v. Default=None
     -w --window=<odd>        savgol_filter window width with odd number. Default=0 (None filter)
     -n --noiselevel=<volt>   Specify noise level for Ig in (V). Default=2e-5
+    -r --rprotect=<ohm>      Specify resistor Rprotect in (ohm). Default=10e6
 """.format(f=__file__)
 
 
@@ -202,10 +212,11 @@ def main():
     IVno = 0 if args["--ivno"] == [] else int(args["--ivno"][0])
     window = 0 if args["--window"] == [] else int(args["--window"][0])
     noise = 2e-5 if args["--noiselevel"] == [] else float(args["--noiselevel"][0])
+    Rprotect = 10e6 if args["--rprotect"] == [] else float(args["--rprotect"][0])
     datafile = args["DATFILE"]
 
     start = time.time()
-    data,cmt = prepare_data(datafile, oldtype)
+    data,cmt = prepare_data(datafile, oldtype) # pandas dataframeとしてデータファイルを読み込み
     # elapsed_time = time.time() - start
     # print("elapsed_time:{0}".format(elapsed_time) + "[sec]")
 
@@ -213,7 +224,8 @@ def main():
     # print(cmt)
     # print(args)
 
-    output = V0batch(data, IVno, noise, window)
+    output = V0batch(data, Rprotect, IVno, noise, window) # V0batchを実行してoutputに格納
+    # output = V0batch(data, IVno, noise, window)
     if IVno == 0:
         ext = datafile.rsplit('.')[-1]
         base = datafile.rsplit('.')[0]
