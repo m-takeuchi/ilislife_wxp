@@ -75,7 +75,7 @@ def prepare_data(datafile, oldtype=False):
 
 
 
-def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4):
+def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel=1e-4):
     import scipy.optimize as so
 
     # function to fit
@@ -90,15 +90,13 @@ def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4):
     df['I'] = np.abs(df['Ig']+df['Ic']) # 全電流の絶対値
 
     Vlow = 1000                 # V0判定に使うVの下限
-    Ilow = 1e-5                 # V0判定に使うI(shunt resistor volgate)の下限
+    Ilow = 2e-5                 # V0判定に使うI(shunt resistor volgate)の下限
     xdata = df[(df['I'] >= Ilow) & (df['V'] >= Vlow)]['Ve'].values**0.5
     ydata = np.log(df[(df['I'] >= Ilow)  & (df['V'] >= Vlow)]['I'])
 
     # initial guess for the parameters
     parameter_initial = np.array([0.0, 0.0]) #a, b
-
     parameter_optimal, covariance = so.curve_fit(func, xdata, ydata, p0=parameter_initial)
-
     y = func(xdata,parameter_optimal[0],parameter_optimal[1])
 
     ### 電流の自然対数vs電圧のルートとした上で,  y = NoiseLevel と y = a*x+b との交点を求める
@@ -111,7 +109,7 @@ def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4):
     X = np.linalg.solve(A,P)        # 逆行列から解を求める
     # print(X[0]**2)                  # sqrt(V)の二乗を取る
     V0= X[0]**2
-    return df, V0
+    return df, V0, xdata, a, b
 
 
 def V0batch(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
@@ -119,23 +117,29 @@ def V0batch(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
         IVno = DataFrame['IVno'].max()
         output = []
         for i in range(1,IVno+1):
-            df, V0 = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
+            df, V0, xdata, a, b = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
             print("{0:d}\t{1:f}".format(i,V0))
             output.append([i, V0])
         return output
     else:                       # IV番号が0でない場合は指定されたIVnoのV0を求め, グラフを出力する
         i=IVno
-        df, V0 = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
+        df, V0, xdata, a, b = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
         print("{0:d}\t{1:f}".format(i,V0))
 
 
         fig = plt.figure()
 
-        plt.plot(df['V'], df['I'], 'b-')
+        # plt.plot(df['V'], df['I'], 'b-')
+        # plt.vlines(V0,ymin=0,ymax=df['I'].max(), linestyles='dashed')
+        # plt.hlines(NoiseLevel,xmin=0,xmax=df['V'].max(), linestyles='dashed')
 
-        plt.vlines(V0,ymin=0,ymax=df['I'].max(), linestyles='dashed')
-        plt.hlines(NoiseLevel,xmin=0,xmax=df['V'].max(), linestyles='dashed')
-
+        plt.yscale("log")
+        plt.plot((df['V'])**0.5, df['I'], 'bs')
+        plt.plot(xdata, np.e**(a*xdata+b), 'r-')
+        plt.hlines(NoiseLevel,xmin=0,xmax=(df['V'].max())**0.5, linestyles='dashed')
+        plt.vlines(V0**0.5, ymin=df['I'].min(), ymax=df['I'].max(), linestyles='dashed')
+        plt.xlabel(r"Squre root voltage (V$^{0.5}$)")
+        plt.ylabel("Log10 for shunt voltage")
 
         #plt.show(block=False)
         plt.show()
