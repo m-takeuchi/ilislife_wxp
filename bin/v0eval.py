@@ -100,25 +100,23 @@ def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel=1e-4):
     hour = timeh( mydate(df['date'].iloc[0])- mydate(DataFrame['date'][0]) )
 
 
-    ### ln(I)-V**0.5 直線によるV0の導出
-    Vlow = 1000                 # V0判定に使うVの下限
-    Ilow = 2e-5                 # V0判定に使うI(shunt resistor volgate)の下限
-    xdata = df[(df['I'] >= Ilow) & (df['V'] >= Vlow)]['Ve'].values**0.5
-    ydata = np.log(df[(df['I'] >= Ilow)  & (df['V'] >= Vlow)]['I'])
-    ### initial guess for the parameters
-    parameter_initial = np.array([0.0, 0.0]) #a, b
-    parameter_optimal, covariance = so.curve_fit(func, xdata, ydata, p0=parameter_initial)
-    y = func(xdata,parameter_optimal[0],parameter_optimal[1])
-
-    ### 電流の自然対数vs電圧のルートとした上で,  y = NoiseLevel と y = a*x+b との交点を求める
-    a = parameter_optimal[0]
-    b = parameter_optimal[1]
-    c = np.log(NoiseLevel)
-    A = np.array([[a, -1], [0, 1]]) # a*x -y = -b と 0*x + y = c の連立方程式の左辺係数
-    P = np.array([-b,c])            # 右辺係数
-    X = np.linalg.solve(A,P)        # 逆行列から解を求める
-    # print(X[0]**2)                  # sqrt(V)の二乗を取る
-    V0= X[0]**2
+    # ### ln(I)-V**0.5 直線によるV0の導出
+    # Vlow = 1000                 # V0判定に使うVの下限
+    # Ilow = 2e-5                 # V0判定に使うI(shunt resistor volgate)の下限
+    # xdata = df[(df['I'] >= Ilow) & (df['V'] >= Vlow)]['Ve'].values**0.5
+    # ydata = np.log(df[(df['I'] >= Ilow)  & (df['V'] >= Vlow)]['I'])
+    # ### initial guess for the parameters
+    # parameter_initial = np.array([0.0, 0.0]) #a, b
+    # parameter_optimal, covariance = so.curve_fit(func, xdata, ydata, p0=parameter_initial)
+    # y = func(xdata,parameter_optimal[0],parameter_optimal[1])
+    # ### 電流の自然対数vs電圧のルートとした上で,  y = NoiseLevel と y = a*x+b との交点を求める
+    # a = parameter_optimal[0]
+    # b = parameter_optimal[1]
+    # c = np.log(NoiseLevel)
+    # A = np.array([[a, -1], [0, 1]]) # a*x -y = -b と 0*x + y = c の連立方程式の左辺係数
+    # P = np.array([-b,c])            # 右辺係数
+    # X = np.linalg.solve(A,P)        # 逆行列から解を求める
+    # V0= X[0]**2
 
     ### スムージンング->補間->NoiseLevel閾値によりV0を導出
     window = 11
@@ -134,7 +132,7 @@ def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel=1e-4):
     V0 = xy_new[xy_new[:,1] <= np.log(NoiseLevel)][-1,0]**2
     # print(V0**0.5, V0)
 
-    return df, V0, hour, xy_new, a, b,
+    return df, V0, hour, xy_new#, a, b,
 
 
 def V0batch(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
@@ -142,7 +140,8 @@ def V0batch(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
         IVno = DataFrame['IVno'].max()
         output = []
         for i in range(1,IVno+1):
-            df, V0, hour, xy_new, a, b = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
+            # df, V0, hour, xy_new, a, b = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
+            df, V0, hour, xy_new = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
 
             # print("{0:d}\t{1:f}".format(i,V0))
             print("{0:d}\t{1:f}\t{2:f}".format(i,hour,V0))
@@ -150,7 +149,8 @@ def V0batch(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
         return output
     else:                       # IV番号が0でない場合は指定されたIVnoのV0を求め, グラフを出力する
         i=IVno
-        df, V0, hour, xy_new, a, b = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
+        # df, V0, hour, xy_new, a, b = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
+        df, V0, hour, xy_new = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
         print("{0:d}\t{1:f}".format(i,V0))
 
 
