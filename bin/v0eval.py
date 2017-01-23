@@ -122,8 +122,8 @@ def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel=1e-4):
     window = 3
     df['I_savgol'] = savgol_filter(df['I'], window, polyorder=1) #savgol_filterを適用しスムージング
     ## ln(y) vs. (V**0.5)に変換
-    df['x'] = df[df['I_savgol']!=0]['V'].values**0.5
-    df['y'] = np.log(df[df['I_savgol']!=0]['I_savgol'].values)
+    df['x'] = df['V'].values**0.5
+    df['y'] = np.log(df['I_savgol'].values)
     df=df.dropna()
     f = interp1d(df['x'].values, df['y'].values, kind='linear') # 全電流に対する電圧の補間関数fを求める
     x_new = np.linspace(df['x'].min(), df['x'].max(), num=1001) # 電圧の最小値から最大値までを1000分割したx_newを作る
@@ -134,6 +134,13 @@ def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel=1e-4):
 
     return df, V0, hour, xy_new#, a, b,
 
+
+def Jsc(V,M,d):
+    """Estimation of space-charge limited current density
+    """
+    import scipy.constants as sc
+    m = M*sc.atomic_mass
+    return (4.0/9.0)*sc.epsilon_0*(2*sc.elementary_charge/m)**0.5*V**(3.0/2)/d**2
 
 def V0batch(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
     if IVno == 0:               # IV番号が0の場合は全てのIV測定についてのV0とI0を出力する
@@ -154,22 +161,40 @@ def V0batch(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
         print("{0:d}\t{1:f}".format(i,V0))
 
 
-        fig = plt.figure()
+        fig = plt.figure(figsize=(10,5))
 
         # plt.plot(df['V'], df['I'], 'b-')
         # plt.vlines(V0,ymin=0,ymax=df['I'].max(), linestyles='dashed')
         # plt.hlines(NoiseLevel,xmin=0,xmax=df['V'].max(), linestyles='dashed')
 
+        ax1 = fig.add_subplot(121)
+        ax2 = fig.add_subplot(122)
+        # plt.yscale("log")
+        # plt.plot((df['V'])**0.5, df['I'], 'bs')
+        # plt.plot(xy_new[:,0], np.e**xy_new[:,1], 'g-')
+        # plt.hlines(NoiseLevel,xmin=0,xmax=(df['V'].max())**0.5, linestyles='dashed')
+        # plt.vlines(V0**0.5, ymin=df['I'].min(), ymax=df['I'].max(), linestyles='dashed')
+        # plt.xlabel(r"Squre root voltage (V$^{0.5}$)")
+        # plt.ylabel("Log10 for shunt voltage")
 
-        plt.yscale("log")
-        plt.plot((df['V'])**0.5, df['I'], 'bs')
-        # plt.plot((df['V'])**0.5, df['I_savgol'], 'g-')
-        plt.plot(xy_new[:,0], np.e**xy_new[:,1], 'g-')
-        # plt.plot(xdata, np.e**(a*xdata+b), 'r-')
-        plt.hlines(NoiseLevel,xmin=0,xmax=(df['V'].max())**0.5, linestyles='dashed')
-        plt.vlines(V0**0.5, ymin=df['I'].min(), ymax=df['I'].max(), linestyles='dashed')
-        plt.xlabel(r"Squre root voltage (V$^{0.5}$)")
-        plt.ylabel("Log10 for shunt voltage")
+        ax1.set_aspect('1.0')
+        ax1.set_yscale("log")
+        ax1.plot((df['V'])**0.5, df['I'], 'bs')
+        ax1.plot(xy_new[:,0], np.e**xy_new[:,1], 'g-')
+        ax1.hlines(NoiseLevel,xmin=0,xmax=(df['V'].max())**0.5, linestyles='dashed')
+        ax1.vlines(V0**0.5, ymin=df['I'].min(), ymax=df['I'].max(), linestyles='dashed')
+        ax1.set_xlabel(r"Squre root voltage (V$^{0.5}$)")
+        ax1.set_ylabel("Log10 for shunt voltage (V)")
+
+        ax2.set_aspect('equal')
+        ax2.set_xscale("log")
+        ax2.set_yscale("log")
+        ax2.plot(df[df['V']>=100]['V'], df[df['V']>=100]['I'], 'bs')
+        ax2.set_xlabel("Log10 for voltage (V)")
+        ax2.set_ylabel("Log10 for shunt voltage (V)")
+
+
+        # plt.plot((df['V'])**0.5, Jsc(df['V'], 66, 0.5e-3)*1e-0/100e3, 'm-')
 
         if platform == "linux" or platform == "linux2":
             plt.show(block=True)
