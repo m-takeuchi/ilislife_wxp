@@ -8,6 +8,7 @@ from matplotlib import gridspec
 import datetime, time
 from scipy.signal import savgol_filter
 from scipy.interpolate import interp1d, Akima1DInterpolator, PchipInterpolator
+from sys import platform
 
 import warnings
 warnings.filterwarnings(action="ignore", module="scipy", message="^internal gelsd")
@@ -23,9 +24,13 @@ def Ve_correct(Ve, Ig, Rprotect):
 def mydate(str_date):
     """convert from datetime str with original format into seconds
     """
+    str_date = str_date.rsplit('.')[0]
     fmt_date = datetime.datetime.strptime(str_date, "%y%m%d-%H:%M:%S")
     sec = time.mktime(fmt_date.timetuple())
     return sec
+
+def timeh(sec):
+    return sec/3600.0
 
 def get_data_old(datafile):
     # For emitter no.6 and befor
@@ -39,7 +44,6 @@ def get_data_old(datafile):
     SrTime = tmpdate.apply(lambda x: mydate(x)-t0 )
     data['time'] = SrTime
     cols = data.columns.tolist()
-    cols
     cols = cols[0:1]+cols[-1:]+cols[1:-1]
     data = data[cols]
     return data
@@ -48,7 +52,6 @@ def get_hdf(datafile):
     return pd.read_hdf(datafile)
 
 def prepare_data(datafile, oldtype=False):
-
     ext = datafile.rsplit('.')[-1]
     base = datafile.rsplit('.')[0]
     if ext == 'dat':
@@ -83,18 +86,26 @@ def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel=1e-4):
         return a*x + b
 
     i=IVno
-    df = DataFrame[DataFrame['IVno']== i ][['Ve','Ig','Ic']].drop_duplicates()
+    df = DataFrame[DataFrame['IVno']== i ][['date','IVno','Ve','Ig','Ic']].drop_duplicates()
+    ix_ini = df[df['Ve'] == 0].index[0] # IVno=iかつVe=0をデータの先頭インデックスとする
+    df = df.ix[ix_ini:]                 # 先頭インデックス以前の付加ゴミ行を除く
     # print(df)
     V = Ve_correct(df['Ve'], df['Ig']/Rs, Rprotect) # 保護抵抗Rprotectでの電圧降下分をVeから差し引き補正
     df['V'] = V
+    df['I_raw'] = df['Ig']+df['Ic'] # 全電流
     df['I'] = np.abs(df['Ig']+df['Ic']) # 全電流の絶対値
+    # print(df)
+    # print(DataFrame['date'][0])
+    # print(df['date'].iloc[0])
+    hour = timeh( mydate(df['date'].iloc[0])- mydate(DataFrame['date'][0]) )
 
+
+    ### ln(I)-V**0.5 直線によるV0の導出
     Vlow = 1000                 # V0判定に使うVの下限
     Ilow = 2e-5                 # V0判定に使うI(shunt resistor volgate)の下限
     xdata = df[(df['I'] >= Ilow) & (df['V'] >= Vlow)]['Ve'].values**0.5
     ydata = np.log(df[(df['I'] >= Ilow)  & (df['V'] >= Vlow)]['I'])
-
-    # initial guess for the parameters
+    ### initial guess for the parameters
     parameter_initial = np.array([0.0, 0.0]) #a, b
     parameter_optimal, covariance = so.curve_fit(func, xdata, ydata, p0=parameter_initial)
     y = func(xdata,parameter_optimal[0],parameter_optimal[1])
@@ -103,13 +114,27 @@ def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel=1e-4):
     a = parameter_optimal[0]
     b = parameter_optimal[1]
     c = np.log(NoiseLevel)
-
     A = np.array([[a, -1], [0, 1]]) # a*x -y = -b と 0*x + y = c の連立方程式の左辺係数
     P = np.array([-b,c])            # 右辺係数
     X = np.linalg.solve(A,P)        # 逆行列から解を求める
     # print(X[0]**2)                  # sqrt(V)の二乗を取る
     V0= X[0]**2
-    return df, V0, xdata, a, b
+
+    ### スムージンング->補間->NoiseLevel閾値によりV0を導出
+    window = 11
+    df['I_savgol'] = savgol_filter(df['I'], window, polyorder=1) #savgol_filterを適用しスムージング
+    ## ln(y) vs. (V**0.5)に変換
+    df['x'] = df[df['I_savgol']!=0]['V'].values**0.5
+    df['y'] = np.log(df[df['I_savgol']!=0]['I_savgol'].values)
+    df=df.dropna()
+    f = interp1d(df['x'].values, df['y'].values, kind='linear') # 全電流に対する電圧の補間関数fを求める
+    x_new = np.linspace(df['x'].min(), df['x'].max(), num=1001) # 電圧の最小値から最大値までを1000分割したx_newを作る
+    xy_new = np.c_[x_new, f(x_new)]                  # x_newとf(x_new)からなるアレイdf_new
+    # print(df['x'])
+    V0 = xy_new[xy_new[:,1] <= np.log(NoiseLevel)][-1,0]**2
+    # print(V0**0.5, V0)
+
+    return df, V0, hour, xy_new, a, b,
 
 
 def V0batch(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
@@ -117,13 +142,15 @@ def V0batch(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
         IVno = DataFrame['IVno'].max()
         output = []
         for i in range(1,IVno+1):
-            df, V0, xdata, a, b = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
-            print("{0:d}\t{1:f}".format(i,V0))
-            output.append([i, V0])
+            df, V0, hour, xy_new, a, b = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
+
+            # print("{0:d}\t{1:f}".format(i,V0))
+            print("{0:d}\t{1:f}\t{2:f}".format(i,hour,V0))
+            output.append([i, hour, V0])
         return output
     else:                       # IV番号が0でない場合は指定されたIVnoのV0を求め, グラフを出力する
         i=IVno
-        df, V0, xdata, a, b = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
+        df, V0, hour, xy_new, a, b = V0estimate(DataFrame, Rprotect, i, NoiseLevel)
         print("{0:d}\t{1:f}".format(i,V0))
 
 
@@ -133,20 +160,25 @@ def V0batch(DataFrame, Rprotect, IVno=1, NoiseLevel = 1e-4, window=0):
         # plt.vlines(V0,ymin=0,ymax=df['I'].max(), linestyles='dashed')
         # plt.hlines(NoiseLevel,xmin=0,xmax=df['V'].max(), linestyles='dashed')
 
+
         plt.yscale("log")
         plt.plot((df['V'])**0.5, df['I'], 'bs')
-        plt.plot(xdata, np.e**(a*xdata+b), 'r-')
+        # plt.plot((df['V'])**0.5, df['I_savgol'], 'g-')
+        plt.plot(xy_new[:,0], np.e**xy_new[:,1], 'g-')
+        # plt.plot(xdata, np.e**(a*xdata+b), 'r-')
         plt.hlines(NoiseLevel,xmin=0,xmax=(df['V'].max())**0.5, linestyles='dashed')
         plt.vlines(V0**0.5, ymin=df['I'].min(), ymax=df['I'].max(), linestyles='dashed')
         plt.xlabel(r"Squre root voltage (V$^{0.5}$)")
         plt.ylabel("Log10 for shunt voltage")
 
-        #plt.show(block=False)
-        plt.show()
-        #plt.draw()
-        #plt.pause(1)
-        #input("<Hit Enter To Close>")
-        # plt.close(fig)
+        if platform == "linux" or platform == "linux2":
+            plt.show(block=True)
+            plt.show()
+        else:
+            plt.draw()
+            plt.pause(1)
+            input("<Hit Enter To Close>")
+            plt.close(fig)
 
 
 __doc__ = """{f}
@@ -187,13 +219,13 @@ def main():
         pdffile = base+'_v0.pdf'
         svgfile = base+'_v0.svgz'
 
-        head = "".join(cmt)+str(args)
+        head = "".join(cmt)+str(args)+'\nIVno\tt(hour)\tVth(V)'
 
         a = np.array(output)
         plt.title(cmt)
         plt.xlabel('Time (h)')
         plt.ylabel(r'V$_{th}$ (V)')
-        plt.plot(a[:,0], a[:,1], 'bo-')
+        plt.plot(a[:,1], a[:,2], 'bo-')
 
         plt.show(block=False)
         plt.savefig(pdffile)
@@ -204,7 +236,7 @@ def main():
         #     f.write("".join(cmt))
         #     f.writelines(output)
         # np.savetxt(outfile, a, fmt=['%i','%.2f','%.2e'], header=head, delimiter='\t')
-        np.savetxt(outfile, a, fmt=['%i','%.2f'], header=head, delimiter='\t')
+        np.savetxt(outfile, a, fmt=['%i','%.2f', '%.2f'], header=head, delimiter='\t')
 
 
 

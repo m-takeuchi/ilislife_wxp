@@ -37,7 +37,6 @@ def get_data_old(datafile):
     lapse_time = tmpdate.apply(lambda x: mydate(x)-t0 )
     data['time'] = lapse_time
     cols = data.columns.tolist()
-    cols
     cols = cols[0:1]+cols[-1:]+cols[1:-1]
     data = data[cols]
     return data
