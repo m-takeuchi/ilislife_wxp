@@ -119,7 +119,7 @@ def V0estimate(DataFrame, Rprotect, IVno=1, NoiseLevel=1e-4):
     # V0= X[0]**2
 
     ### スムージンング->補間->NoiseLevel閾値によりV0を導出
-    window = 11
+    window = 3
     df['I_savgol'] = savgol_filter(df['I'], window, polyorder=1) #savgol_filterを適用しスムージング
     ## ln(y) vs. (V**0.5)に変換
     df['x'] = df[df['I_savgol']!=0]['V'].values**0.5
