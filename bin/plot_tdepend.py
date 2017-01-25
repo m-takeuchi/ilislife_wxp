@@ -48,7 +48,7 @@ def save_dfFile(df, filename):
 
 
 # def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=10e6, topdf=False, pdffile=None, tosvg=False, svgfile=None, ymax=0, ymin=0):
-def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=10e6, topdf=False, tosvg=False,ymax=0, ymin=0):
+def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=10e6, topdf=False, tosvg=False,ymax=0, ymin=0, tolog=False):
     ext = datafile.rsplit('.')[-1]
     base = datafile.rsplit('.')[0]
     pdffile = base+'.pdf'
@@ -114,6 +114,7 @@ def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=
     axp.set_xticklabels('')
     axp.set_yscale('log')
 
+    ### Current - Time graph
     ax2.set_ylabel('Ig, Ic (nA)')
     ax2.set_xlabel('Time (h)')
     if (ymax !=0) or (ymin !=0):
@@ -126,6 +127,11 @@ def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=
     ax1.plot(time_h, data['Ve']/1e3, 'k-')
     ax1.plot(time_h, Vext/1e3, 'r-') ### Added 161107
     axp.plot(time_h, data['P'], 'm-')
+
+    if tolog == True:
+        ax2.set_yscale('log')
+        data['Ig'] = np.abs(data['Ig'])
+        data['Ic'] = np.abs(data['Ic'])
     ax2.plot(time_h, data['Ig']/Rs*1e9, 'g-', label='Ig')
     ax2.plot(time_h, data['Ic']/Rs*1e9, 'b-', label='Ic')
     I = (data['Ic']+data['Ig'])/Rs
@@ -159,13 +165,14 @@ def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=
     # -s --svg=SVGFILE               Export graph to svg file [default: None]
 __doc__ = """{f}
 Usage:
-    {f} [-o | --oldtype] [-c | --comment] [-e | --exclude-iv]   [-p | --pdf] [-s | --svg] [-r | --protect-resistor=<num>] [--ymax=<num>] [--ymin=<num>] DATFILE
+    {f} [-o | --oldtype] [-c | --comment] [-e | --exclude-iv] [-l | --log]  [-p | --pdf] [-s | --svg] [-r | --protect-resistor=<num>] [--ymax=<num>] [--ymin=<num>] DATFILE
     {f} -h | --help
 
 Options:
     -h --help                      Show this screen and exit.
     -o --oldtype                   Spesify dat file is formated with old type
     -c --comment                   Read comment from dat file and label on graph
+    -l --log                       Specify y axis to be log for Ion current
     -p --pdf                       Export graph to pdf file
     -s --svg                       Export graph to svg file
     -r --protect-resistor=<num>    Set Rprotect in float [ohm]
@@ -187,6 +194,7 @@ def main():
     #     topdf, pdfname = False, None
     # else:
     #     topdf, pdfname = True, args['--pdf']
+    tolog = args['--log']
     topdf = args['--pdf']
     tosvg = args['--svg']
     # print(args['--svg'])
@@ -201,7 +209,7 @@ def main():
     # print(args["--ymax"], args["--ymin"])
     ymax = 0 if args["--ymax"] == None else float(args["--ymax"])
     ymin = 0 if args["--ymin"] == None else float(args["--ymin"])
-    tf = generate_plot(datafile, oldtype, comment, exc_iv, Rprotect, topdf=topdf, tosvg=tosvg, ymax=ymax, ymin=ymin)
+    tf = generate_plot(datafile, oldtype, comment, exc_iv, Rprotect, topdf=topdf, tosvg=tosvg, ymax=ymax, ymin=ymin, tolog=tolog)
     # tf = generate_plot(datafile, oldtype, comment, exc_iv, Rprotect, topdf=False, pdffile=None, tosvg=tosvg, svgfile=svgname, ymax=ymax, ymin=ymin)
     print("Total charge (C): {0:.3e}".format(tf))
 
