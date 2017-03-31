@@ -88,25 +88,16 @@ def save_dfFile(df, filename):
     df.to_csv(filename, sep='\t')
 
 
-# def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=10e6, topdf=False, pdffile=None, tosvg=False, svgfile=None, ymax=0, ymin=0):
-def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=10e6, topdf=False, tosvg=False,ymax=0, ymin=0, tolog=False):
+# def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=10e6, topdf=False, tosvg=False,ymax=0, ymin=0, tolog=False):
+def calc_dose(datafile, comment=None, exc_iv=False, Rprotect=1e8,
+              ymax=0, ymin=0):
     ext = datafile.rsplit('.')[-1]
     base = datafile.rsplit('.')[0]
-    pdffile = base+'.pdf'
-    svgfile = base+'.svgz'
-    # if pdffile == 'None':
-        # pdffile = base+'.pdf'
-        # print(pdffile)
-    # if svgfile == None:
-    #     svgfile = base+'.svg'
 
     if ext == 'dat':
-        if oldtype == False:
-            data = pd.read_csv(datafile, delimiter='\t', comment='#',
-                               names=['date','time','Ve','Ig','Ic', 'P', 'IVno'],
-                               dtype={'Ve':'float64','Ig':'float64','Ic':'float64','P':'float64'})
-        else:
-            data = get_data_old(datafile)
+        data = pd.read_csv(datafile, delimiter='\t', comment='#',
+                           names=['date','time','Ve','Ig','Ic', 'P', 'IVno'],
+                           dtype={'Ve':'float64','Ig':'float64','Ic':'float64','P':'float64'})
         if comment == True:
             ### Read first line as comment
             with open(datafile, 'r') as f:
@@ -123,8 +114,8 @@ def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=
             # print(cmt.value.decode('utf-8'))
 
     ### Omit Abnormal data
-    ignore1 = data['Ig'].abs() > 10e+0
-    ignore2 = data['Ic'].abs() > 10e+0
+    ignore1 = data['Ig'].abs() > 100e+0
+    ignore2 = data['Ic'].abs() > 100e+0
 
     if exc_iv == False:
         data = data[(ignore1 | ignore2) == False]
@@ -136,132 +127,58 @@ def generate_plot(datafile, oldtype=False, comment=None, exc_iv=False, Rprotect=
 
     ### Calc lapse time and dt from 'date' column but not from 'time' column.
     ### This is because to make sure no matter what the 'time' column is presice.
-    data = data4dt(data)
+    try:
+        data = data4dt(data)
+        I = (data['Ic']+data['Ig'])/Rs
+        tot_time = np.sum(data[ I.abs() >= ymin]['dt'])
+        tot_fluence = np.sum(I * data['dt']) # For the case of dt != 1
+    except IndexError:
+        tot_time = 0.00
+        tot_fluence = 0.00
+
+    return tot_fluence, tot_time
 
 
 
-    # fig = plt.figure()
-    gs = gridspec.GridSpec(3, 1, height_ratios=[1, 1, 3])
-    ax1 = plt.subplot(gs[0])
-    axp = plt.subplot(gs[1])
-    ax2 = plt.subplot(gs[2])
-    time_h = data['time']/3600
-
-    if cmt:
-        ax1.set_title(datafile+'\n'+cmt, fontsize=10)
-    else:
-        ax1.set_title(datafile)
-    ax1.set_ylabel('Ve (kV)')
-    # ax1.set_ylim(0,10)
-    ax1.set_xticklabels('')
-    ax1.grid('on')
-    axp.set_ylabel('P (Pa)')
-    axp.set_ylim(1e-6,1e-3)
-    axp.grid('on')
-    axp.set_xticklabels('')
-    axp.set_yscale('log')
-
-    ### Current - Time graph
-    ax2.set_ylabel('Ig, Ic (nA)')
-    ax2.set_xlabel('Time (h)')
-    if (ymax !=0) or (ymin !=0):
-        ax2.set_ylim(ymax=ymax, ymin=ymin)
-    ax2.ticklabel_format(style = 'sci', axis='y', useOffset=False)
-    ax2.grid('on')
-
-    Vext = Ve_correct(data['Ve'], data['Ig']/Rs, data['Ic']/Rs, Rprotect) ### Added 161107
-
-    ax1.plot(time_h, data['Ve']/1e3, 'k-')
-    ax1.plot(time_h, Vext/1e3, 'r-') ### Added 161107
-    axp.plot(time_h, data['P'], 'm-')
-
-    if tolog == True:
-        ax2.set_yscale('log')
-        data['Ig'] = np.abs(data['Ig'])
-        data['Ic'] = np.abs(data['Ic'])
-    ax2.plot(time_h, data['Ig']/Rs*1e9, 'g-', label='Ig')
-    ax2.plot(time_h, data['Ic']/Rs*1e9, 'b-', label='Ic')
-    I = (data['Ic']+data['Ig'])/Rs
-    # tot_fluence = I.sum()
-
-    tot_fluence = np.sum((data['Ic']+data['Ig'])/Rs * data['dt']) # For the case of dt != 1
-
-
-    ax2.set_title('Total '+ "{0:.2e}".format(tot_fluence) + ' (C)')
-    ax2.plot(time_h, I*1e9, 'r-', label='Ig+Ic')
-    ax2.legend(loc='best')
-
-    if (topdf == False) and (tosvg == False):
-    # if topdf == False:
-        plt.show(block=False)
-
-        input("<Hit Enter To Close>")
-        return tot_fluence
-    else:
-        if topdf == True:
-            plt.savefig(pdffile)
-            print("{0} is created.".format(pdffile))
-        if tosvg == True:
-            plt.savefig(svgfile, format="svgz")
-            print("{0} is created.".format(svgfile))
-    return tot_fluence
-
-    # return data
-
-# generate_plot(datafile, oldtype=True)
-
-
-    # {f} [-o | --oldtype] [-c | --comment] [-e | --exclude-iv]  [-r | --protect-resistor=<num>] [--ymax=<num>] [--ymin=<num>] [-p | --pdf=PDFFILE] [-s | --svg=SVGFILE] DATFILE
-    # -s --svg=SVGFILE               Export graph to svg file [default: None]
 __doc__ = """{f}
 Usage:
-    {f} [-o | --oldtype] [-c | --comment] [-e | --exclude-iv] [-l | --log]  [-p | --pdf] [-s | --svg] [-r | --protect-resistor=<num>] [--ymax=<num>] [--ymin=<num>] DATFILE
+    {f}  [-e | --exclude-iv] [-c | --comment] [-r | --protect-resistor=<num>] [--ymax=<num>] [--ymin=<num>] [--input=<file>] [DATFILE...]
     {f} -h | --help
 
 Options:
     -h --help                      Show this screen and exit.
-    -o --oldtype                   Spesify dat file is formated with old type
-    -c --comment                   Read comment from dat file and label on graph
-    -l --log                       Specify y axis to be log for Ion current
-    -p --pdf                       Export graph to pdf file
-    -s --svg                       Export graph to svg file
-    -r --protect-resistor=<num>    Set Rprotect in float [ohm]
     -e --exclude-iv                Exclude I-V measurement step
+    -c --comment                   Read comment from dat file and label on graph
+    -r --protect-resistor=<num>    Set Rprotect in float [ohm]
     --ymax=<num>                   Set ymax
     --ymin=<num>                   Set ymin
+    --input=<file>                 Specipy input file written of datfile names
 """.format(f=__file__)
 
 def main():
     from docopt import docopt
     args = docopt(__doc__)
 
-    # print(args["--oldtype"])
-    oldtype = args["--oldtype"]
-    comment = args["--comment"]
     datafile = args["DATFILE"]
 
-    # if args['--pdf']==[]:
-    #     topdf, pdfname = False, None
-    # else:
-    #     topdf, pdfname = True, args['--pdf']
-    tolog = args['--log']
-    topdf = args['--pdf']
-    tosvg = args['--svg']
-    # print(args['--svg'])
-    # if args['--svg']==[]:
-    #     tosvg, svgname = False, None
-    # else:
-    #     tosvg, svgname = True, args['--svg'][0]
-
-
     exc_iv = args['--exclude-iv']
+    comment = args["--comment"]
     Rprotect = 10e6 if args["--protect-resistor"] == [] else float(args["--protect-resistor"][0])
-    # print(args["--ymax"], args["--ymin"])
     ymax = 0 if args["--ymax"] == None else float(args["--ymax"])
     ymin = 0 if args["--ymin"] == None else float(args["--ymin"])
-    tf = generate_plot(datafile, oldtype, comment, exc_iv, Rprotect, topdf=topdf, tosvg=tosvg, ymax=ymax, ymin=ymin, tolog=tolog)
-    # tf = generate_plot(datafile, oldtype, comment, exc_iv, Rprotect, topdf=False, pdffile=None, tosvg=tosvg, svgfile=svgname, ymax=ymax, ymin=ymin)
-    print("Total charge (C): {0:.3e}".format(tf))
+
+    if args["--input"] != None:
+        with open(args["--input"], "r") as file:
+            datafile = datafile + file.read().splitlines()
+
+    # print(datafile)
+
+    for df in datafile:
+        
+        tf,tt = calc_dose(df, comment, exc_iv, Rprotect, ymax=ymax, ymin=ymin)
+        print("{0:}, {1:.2e}, {2:.2e}".format(df,tf,tt))
+
+    # print("Total charge (C): {0:.3e}, Lifetime (s): {1:.3e}".format(tf,tt))
 
 
 if __name__ == '__main__':

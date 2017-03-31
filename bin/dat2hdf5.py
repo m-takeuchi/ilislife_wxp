@@ -36,7 +36,7 @@ def get_data_old(datafile):
     SrTime = tmpdate.apply(lambda x: mydate(x)-t0 )
     data['time'] = SrTime
     cols = data.columns.tolist()
-    cols
+    # cols
     cols = cols[0:1]+cols[-1:]+cols[1:-1]
     data = data[cols]
     return data, cmt
